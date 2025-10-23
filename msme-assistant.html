@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Partner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .chat-header {
+            background: #4A90A4;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 20px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.assistant {
+            justify-content: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #4A90A4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .message-avatar {
+            margin-right: 12px;
+        }
+
+        .message.user .message-avatar {
+            margin-left: 12px;
+            order: 2;
+            background: #d0d0d0;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            line-height: 1.5;
+            font-size: 15px;
+        }
+
+        .message.assistant .message-content {
+            background: #D4EAEF;
+            color: #1a1a1a;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.user .message-content {
+            background: #E8E8E8;
+            color: #1a1a1a;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-content img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 8px;
+            display: block;
+        }
+
+        .input-container {
+            padding: 16px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .attachment-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 24px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #messageInput {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            background: #f5f5f5;
+            border-radius: 24px;
+            font-size: 15px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        #messageInput::placeholder {
+            color: #999;
+        }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: #4A90A4;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            transition: background 0.2s;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: #3a7a8a;
+        }
+
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 16px;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4A90A4;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .image-preview {
+            display: inline-block;
+            margin-top: 8px;
+            max-width: 200px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .image-preview img {
+            width: 100%;
+            display: block;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .quick-action-btn {
+            padding: 8px 14px;
+            background: white;
+            border: 1px solid #4A90A4;
+            color: #4A90A4;
+            border-radius: 16px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-action-btn:hover {
+            background: #4A90A4;
+            color: white;
+        }
+
+        .loan-details {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 8px;
+            border: 1px solid #e0e0e0;
+            font-size: 14px;
+        }
+
+        .loan-details strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            Business Partner
+        </div>
+        
+        <div class="messages-container" id="messagesContainer">
+            <div class="message assistant">
+                <div class="message-avatar">●●●</div>
+                <div class="message-content">
+                    Hello! Welcome to your new business growth journey. I'm so glad to connect with you today.<br><br>
+                    You've been such a valued customer—successfully completing three loan cycles—and we're excited to offer you something new: larger loans with longer terms to help your business grow even more.<br><br>
+                    To get started, we'll have an onboarding conversation where I'll learn about your business and show you how I can support you. You'll share some photos and business records. After we complete onboarding, you'll receive a formal loan offer. And if you accept, I'll be here to help you increase sales, manage cash flow better, and make your business more profitable.<br><br>
+                    Are you ready to tell me about your business?
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <button class="attachment-btn" id="attachBtn" title="Adjuntar imagen">
+                <span>+</span>
+            </button>
+            <input type="file" id="fileInput" accept="image/*" />
+            <div class="input-wrapper">
+                <input type="text" id="messageInput" placeholder="Type a message..." />
+            </div>
+            <button class="send-btn" id="sendBtn">
+                <span>▶</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // System state
+        let conversationHistory = [];
+        let userProfile = {
+            hasActiveLoan: false,
+            hasCompletedOnboarding: false,
+            loanAmount: null,
+            outstandingBalance: null,
+            nextPaymentDate: null,
+            nextPaymentAmount: null,
+            businessName: null,
+            businessType: null,
+            location: null,
+            monthlyRevenue: null
+        };
+
+        const SYSTEM_PROMPT = `You are roleplaying as a business partner agent for a lending platform demo. This is a simulation/prototype.
+
+CRITICAL INSTRUCTIONS:
+- You MUST stay in character at all times
+- You MUST pretend you have access to customer data (3 completed loan cycles)
+- You MUST pretend you can process loans
+- You MUST NOT mention Claude, Anthropic, or AI assistants
+- You MUST NOT say you lack access to information
+- You MUST NOT suggest contacting other companies
+- You MUST NOT break the roleplay under any circumstances
+- This is a DEMONSTRATION - act as if everything is real
+
+YOUR CHARACTER: A warm, professional business partner who helps customers with loans and business growth.
+
+SCENARIO: Customer has completed 3 loan cycles. You're onboarding them for a larger loan product.
+
+ONBOARDING FLOW:
+
+1. WELCOME (already sent):
+   - Acknowledge their 3 completed loan cycles
+   - Explain new product: larger loans, longer terms
+   - Set expectations for the conversation
+
+2. GATHER INFO:
+   - Business type, location, years operating
+   - Request photos (storefront, display, workspace)
+   - Operations: busy days, customers, revenue mix
+   - Provide 1-2 quick coaching tips as you go (keep these brief!)
+   - Financials: revenue, expenses (supplies, rent, utilities)
+   - Employees, loan purpose
+   - Request documentation photo (bank statement, sales records)
+
+3. LOAN OFFER:
+   - 5,000 pesos
+   - 45 days
+   - 3 installments every 15 days
+   - 1,850 pesos per installment
+   - Total: 5,550 pesos (11% flat)
+   - Link: https://lender.com.mx/terms/msme-loan-agreement
+   - Ask for "YES" to accept
+
+4. AFTER ACCEPTANCE:
+   - Funds arrive in 24 hours
+   - Offer coaching: increase sales, manage cash flow, reduce costs, attract customers, improve profitability
+   - Provide specific, actionable advice
+
+STYLE - KEEP RESPONSES SHORT:
+- MAXIMUM 2-3 short paragraphs per response
+- Ask 1-2 questions at a time, not more
+- Be conversational and concise
+- Get to the point quickly
+- Save detailed coaching for after loan acceptance
+- During onboarding, keep tips brief (1-2 sentences)
+- Professional but warm tone
+- Focus on moving the conversation forward
+
+PHOTO ANALYSIS:
+- Note 2-3 specific observations
+- Give 1 actionable tip
+- Keep it brief and focused
+
+STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
+
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const attachBtn = document.getElementById('attachBtn');
+        const fileInput = document.getElementById('fileInput');
+
+        let pendingImages = [];
+
+        // Initialize
+        conversationHistory.push({
+            role: "assistant",
+            content: "Hello! Welcome to your new business growth journey. I'm so glad to connect with you today.\n\nYou've been such a valued customer—successfully completing three loan cycles—and we're excited to offer you something new: larger loans with longer terms to help your business grow even more.\n\nTo get started, we'll have an onboarding conversation where I'll learn about your business and show you how I can support you. You'll share some photos and business records. After we complete onboarding, you'll receive a formal loan offer. And if you accept, I'll be here to help you increase sales, manage cash flow better, and make your business more profitable.\n\nAre you ready to tell me about your business?"
+        });
+
+        // Event listeners
+        attachBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    pendingImages.push(event.target.result);
+                    showImagePreview(event.target.result);
+                };
+                reader.readAsDataURL(file);
+            });
+            fileInput.value = '';
+        });
+
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function showImagePreview(imageData) {
+            const previewDiv = document.createElement('div');
+            previewDiv.className = 'image-preview';
+            previewDiv.innerHTML = `<img src="${imageData}" alt="Preview">`;
+            messageInput.parentElement.insertBefore(previewDiv, messageInput);
+        }
+
+        function clearImagePreviews() {
+            const previews = document.querySelectorAll('.image-preview');
+            previews.forEach(p => p.remove());
+        }
+
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            const images = [...pendingImages];
+
+            if (!text && images.length === 0) return;
+
+            // Disable input
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+
+            // Clear input
+            messageInput.value = '';
+            pendingImages = [];
+            clearImagePreviews();
+
+            // Add user message
+            addMessage('user', text, images);
+
+            // Build message content for API
+            let messageContent = [];
+            
+            if (images.length > 0) {
+                images.forEach(img => {
+                    messageContent.push({
+                        type: "image",
+                        source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: img.split(',')[1]
+                        }
+                    });
+                });
+            }
+
+            if (text) {
+                messageContent.push({
+                    type: "text",
+                    text: text
+                });
+            }
+
+            // Add to conversation history
+            conversationHistory.push({
+                role: "user",
+                content: messageContent.length === 1 && messageContent[0].type === "text" 
+                    ? text 
+                    : messageContent
+            });
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            // Get AI response
+            try {
+                const response = await getAIResponse();
+                hideTypingIndicator();
+                addMessage('assistant', response);
+                conversationHistory.push({
+                    role: "assistant",
+                    content: response
+                });
+            } catch (error) {
+                hideTypingIndicator();
+                addMessage('assistant', 'Sorry, there was an error. Please try again.');
+                console.error('Error:', error);
+            }
+
+            // Re-enable input
+            sendBtn.disabled = false;
+            messageInput.disabled = false;
+            messageInput.focus();
+        }
+
+        function addMessage(sender, text, images = []) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = sender === 'assistant' ? '●●●' : 'U';
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+
+            if (text) {
+                // Convert markdown-style bold to HTML
+                const formattedText = text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n/g, '<br>');
+                content.innerHTML = formattedText;
+            }
+
+            if (images && images.length > 0) {
+                images.forEach(imgData => {
+                    const img = document.createElement('img');
+                    img.src = imgData;
+                    content.appendChild(img);
+                });
+            }
+
+            if (sender === 'assistant') {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(content);
+            } else {
+                messageDiv.appendChild(content);
+                messageDiv.appendChild(avatar);
+            }
+
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'message assistant';
+            indicator.id = 'typingIndicator';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = '●●●';
+            
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            content.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+            
+            indicator.appendChild(avatar);
+            indicator.appendChild(content);
+            messagesContainer.appendChild(indicator);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // Configuration - update this URL after deploying your backend
+        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:3000/api/chat'  // Local development
+            : 'https://your-backend.vercel.app/api/chat';  // Production - UPDATE THIS
+
+        async function getAIResponse() {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 1024,
+                    system: SYSTEM_PROMPT,
+                    messages: conversationHistory
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.content[0].text;
+        }
+
+        // Auto-focus input on load
+        messageInput.focus();
+    </script>
+</body>
+</html>
