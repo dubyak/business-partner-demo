@@ -15,15 +15,50 @@ const langfuse = new Langfuse({
     baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com'
 });
 
-// Load system instructions
+// Load system instructions from file (fallback)
 const systemInstructionsPath = path.join(__dirname, '..', 'system-instructions.md');
-let SYSTEM_INSTRUCTIONS = '';
+let SYSTEM_INSTRUCTIONS_FALLBACK = '';
 try {
-    SYSTEM_INSTRUCTIONS = fs.readFileSync(systemInstructionsPath, 'utf8');
-    console.log('✓ System instructions loaded from file');
+    SYSTEM_INSTRUCTIONS_FALLBACK = fs.readFileSync(systemInstructionsPath, 'utf8');
+    console.log('✓ System instructions fallback loaded from file');
 } catch (error) {
     console.error('Warning: Could not load system-instructions.md:', error.message);
-    SYSTEM_INSTRUCTIONS = 'You are a helpful business partner assistant.';
+    SYSTEM_INSTRUCTIONS_FALLBACK = 'You are a helpful business partner assistant.';
+}
+
+// Cache for Langfuse prompt
+let promptCache = {
+    content: null,
+    fetchedAt: null,
+    ttl: 60000 // Cache for 1 minute
+};
+
+// Function to get system prompt from Langfuse or fallback
+async function getSystemPrompt() {
+    const now = Date.now();
+    
+    // Return cached prompt if still valid
+    if (promptCache.content && promptCache.fetchedAt && (now - promptCache.fetchedAt < promptCache.ttl)) {
+        return promptCache.content;
+    }
+
+    // Try to fetch from Langfuse
+    try {
+        const promptName = process.env.LANGFUSE_PROMPT_NAME || 'business-partner-system';
+        const prompt = await langfuse.getPrompt(promptName);
+        
+        if (prompt && prompt.prompt) {
+            promptCache.content = prompt.prompt;
+            promptCache.fetchedAt = now;
+            console.log(`✓ System prompt fetched from Langfuse: ${promptName} (v${prompt.version})`);
+            return prompt.prompt;
+        }
+    } catch (error) {
+        console.log('ℹ Using fallback prompt (Langfuse prompt not found or error):', error.message);
+    }
+
+    // Fallback to file-based prompt
+    return SYSTEM_INSTRUCTIONS_FALLBACK;
 }
 
 // Middleware
@@ -55,8 +90,8 @@ app.post('/api/chat', async (req, res) => {
             return res.status(500).json({ error: 'Server configuration error: API key not set' });
         }
 
-        // Use system instructions from file (allow override for testing)
-        const systemPrompt = system || SYSTEM_INSTRUCTIONS;
+        // Get system prompt from Langfuse or fallback (allow override for testing)
+        const systemPrompt = system || await getSystemPrompt();
 
         // Create Langfuse trace for this conversation
         trace = langfuse.trace({
@@ -79,7 +114,8 @@ app.post('/api/chat', async (req, res) => {
             input: messages,
             metadata: {
                 systemPromptLength: systemPrompt.length,
-                messageCount: messages.length
+                messageCount: messages.length,
+                promptSource: promptCache.content ? 'langfuse' : 'file'
             }
         });
 
