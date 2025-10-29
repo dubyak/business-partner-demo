@@ -9,6 +9,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Initialize Langfuse
+console.log('[LANGFUSE] Initializing with config:');
+console.log(`  - Base URL: ${process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com'}`);
+console.log(`  - Secret Key: ${process.env.LANGFUSE_SECRET_KEY ? 'Set (starts with ' + process.env.LANGFUSE_SECRET_KEY.substring(0, 10) + '...)' : 'NOT SET'}`);
+console.log(`  - Public Key: ${process.env.LANGFUSE_PUBLIC_KEY ? 'Set (starts with ' + process.env.LANGFUSE_PUBLIC_KEY.substring(0, 10) + '...)' : 'NOT SET'}`);
+
 const langfuse = new Langfuse({
     secretKey: process.env.LANGFUSE_SECRET_KEY,
     publicKey: process.env.LANGFUSE_PUBLIC_KEY,
@@ -36,33 +41,48 @@ let promptCache = {
 // Function to get system prompt from Langfuse or fallback
 async function getSystemPrompt() {
     const now = Date.now();
-    
+
     // Return cached prompt if still valid
     if (promptCache.content && promptCache.fetchedAt && (now - promptCache.fetchedAt < promptCache.ttl)) {
+        const cacheAge = Math.floor((now - promptCache.fetchedAt) / 1000);
+        console.log(`[LANGFUSE] Using cached prompt (age: ${cacheAge}s / ${promptCache.ttl / 1000}s TTL)`);
         return promptCache.content;
     }
 
     // Try to fetch from Langfuse
     try {
         const promptName = process.env.LANGFUSE_PROMPT_NAME || 'business-partner-system';
-        console.log(`[DEBUG] Attempting to fetch prompt: ${promptName}`);
+        console.log(`[LANGFUSE] Attempting to fetch prompt: "${promptName}"`);
+        console.log(`[LANGFUSE] Connecting to: ${process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com'}`);
+
         const prompt = await langfuse.getPrompt(promptName);
-        console.log(`[DEBUG] Prompt fetch result:`, prompt ? 'received' : 'null/undefined');
-        
+        console.log(`[LANGFUSE] Prompt fetch result:`, prompt ? 'received' : 'null/undefined');
+
         if (prompt && prompt.prompt) {
             promptCache.content = prompt.prompt;
             promptCache.fetchedAt = now;
-            console.log(`✓ System prompt fetched from Langfuse: ${promptName} (v${prompt.version})`);
+            console.log(`[LANGFUSE] ✓ System prompt fetched successfully: ${promptName} (v${prompt.version})`);
+            console.log(`[LANGFUSE] Prompt length: ${prompt.prompt.length} characters`);
             return prompt.prompt;
+        } else if (prompt) {
+            console.log(`[LANGFUSE] ✗ Prompt object missing 'prompt' property`);
+            console.log(`[LANGFUSE] Received object keys:`, Object.keys(prompt));
+            console.log(`[LANGFUSE] Full object:`, JSON.stringify(prompt, null, 2));
         } else {
-            console.log(`[DEBUG] Prompt object missing 'prompt' property. Full object:`, JSON.stringify(prompt));
+            console.log(`[LANGFUSE] ✗ Prompt fetch returned null/undefined`);
         }
     } catch (error) {
-        console.log('ℹ Using fallback prompt (Langfuse prompt not found or error):', error.message);
-        console.log('[DEBUG] Full error:', error);
+        console.log(`[LANGFUSE] ✗ Error fetching prompt: ${error.message}`);
+        console.log(`[LANGFUSE] Error type: ${error.constructor.name}`);
+        if (error.response) {
+            console.log(`[LANGFUSE] Response status: ${error.response.status}`);
+            console.log(`[LANGFUSE] Response data:`, error.response.data);
+        }
+        console.log('[LANGFUSE] Full error stack:', error.stack);
     }
 
     // Fallback to file-based prompt
+    console.log(`[LANGFUSE] → Falling back to file-based system instructions (${SYSTEM_INSTRUCTIONS_FALLBACK.length} chars)`);
     return SYSTEM_INSTRUCTIONS_FALLBACK;
 }
 
