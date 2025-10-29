@@ -123,6 +123,7 @@ app.post('/api/chat', async (req, res) => {
             name: 'business-partner-chat',
             sessionId: sessionId || `session-${Date.now()}`,
             userId: userId || 'demo-user',
+            input: messages, // Add input at trace level
             metadata: {
                 model: model || 'claude-sonnet-4-20250514',
                 timestamp: new Date().toISOString()
@@ -194,6 +195,13 @@ app.post('/api/chat', async (req, res) => {
                     latencyMs: endTime - startTime,
                     stopReason: data.stop_reason
                 }
+            });
+        }
+
+        // Update trace with output
+        if (trace) {
+            trace.update({
+                output: data.content
             });
         }
 
