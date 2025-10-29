@@ -1,9 +1,30 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+const { Langfuse } = require('langfuse');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize Langfuse
+const langfuse = new Langfuse({
+    secretKey: process.env.LANGFUSE_SECRET_KEY,
+    publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+    baseUrl: process.env.LANGFUSE_HOST || 'https://cloud.langfuse.com'
+});
+
+// Load system instructions
+const systemInstructionsPath = path.join(__dirname, '..', 'system-instructions.md');
+let SYSTEM_INSTRUCTIONS = '';
+try {
+    SYSTEM_INSTRUCTIONS = fs.readFileSync(systemInstructionsPath, 'utf8');
+    console.log('✓ System instructions loaded from file');
+} catch (error) {
+    console.error('Warning: Could not load system-instructions.md:', error.message);
+    SYSTEM_INSTRUCTIONS = 'You are a helpful business partner assistant.';
+}
 
 // Middleware
 app.use(cors());
@@ -14,10 +35,14 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Business Partner API is running' });
 });
 
-// Proxy endpoint for Anthropic API
+// Proxy endpoint for Anthropic API with Langfuse tracing
 app.post('/api/chat', async (req, res) => {
+    const startTime = Date.now();
+    let trace = null;
+    let generation = null;
+
     try {
-        const { model, max_tokens, system, messages } = req.body;
+        const { model, max_tokens, system, messages, sessionId, userId } = req.body;
 
         // Validate request
         if (!messages || !Array.isArray(messages)) {
@@ -30,6 +55,34 @@ app.post('/api/chat', async (req, res) => {
             return res.status(500).json({ error: 'Server configuration error: API key not set' });
         }
 
+        // Use system instructions from file (allow override for testing)
+        const systemPrompt = system || SYSTEM_INSTRUCTIONS;
+
+        // Create Langfuse trace for this conversation
+        trace = langfuse.trace({
+            name: 'business-partner-chat',
+            sessionId: sessionId || `session-${Date.now()}`,
+            userId: userId || 'demo-user',
+            metadata: {
+                model: model || 'claude-sonnet-4-20250514',
+                timestamp: new Date().toISOString()
+            }
+        });
+
+        // Log the generation
+        generation = trace.generation({
+            name: 'anthropic-api-call',
+            model: model || 'claude-sonnet-4-20250514',
+            modelParameters: {
+                maxTokens: max_tokens || 1024
+            },
+            input: messages,
+            metadata: {
+                systemPromptLength: systemPrompt.length,
+                messageCount: messages.length
+            }
+        });
+
         // Call Anthropic API
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
@@ -41,7 +94,7 @@ app.post('/api/chat', async (req, res) => {
             body: JSON.stringify({
                 model: model || 'claude-sonnet-4-20250514',
                 max_tokens: max_tokens || 1024,
-                system: system,
+                system: systemPrompt,
                 messages: messages
             })
         });
@@ -49,6 +102,15 @@ app.post('/api/chat', async (req, res) => {
         if (!response.ok) {
             const errorData = await response.text();
             console.error('Anthropic API error:', response.status, errorData);
+            
+            // Log error to Langfuse
+            if (generation) {
+                generation.end({
+                    level: 'ERROR',
+                    statusMessage: `API error: ${response.status}`
+                });
+            }
+            
             return res.status(response.status).json({ 
                 error: 'API request failed', 
                 details: errorData 
@@ -56,10 +118,40 @@ app.post('/api/chat', async (req, res) => {
         }
 
         const data = await response.json();
+        const endTime = Date.now();
+
+        // Log successful response to Langfuse
+        if (generation) {
+            generation.end({
+                output: data.content,
+                usage: {
+                    input: data.usage?.input_tokens || 0,
+                    output: data.usage?.output_tokens || 0,
+                    total: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+                },
+                metadata: {
+                    latencyMs: endTime - startTime,
+                    stopReason: data.stop_reason
+                }
+            });
+        }
+
+        // Finalize trace
+        await langfuse.flushAsync();
+
         res.json(data);
 
     } catch (error) {
         console.error('Error in /api/chat:', error);
+        
+        // Log error to Langfuse
+        if (generation) {
+            generation.end({
+                level: 'ERROR',
+                statusMessage: error.message
+            });
+        }
+        
         res.status(500).json({ 
             error: 'Internal server error', 
             message: error.message 
