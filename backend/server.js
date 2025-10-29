@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 const langfuse = new Langfuse({
     secretKey: process.env.LANGFUSE_SECRET_KEY,
     publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-    baseUrl: process.env.LANGFUSE_HOST || 'https://cloud.langfuse.com'
+    baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com'
 });
 
 // Load system instructions
