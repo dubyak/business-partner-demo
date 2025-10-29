@@ -45,16 +45,21 @@ async function getSystemPrompt() {
     // Try to fetch from Langfuse
     try {
         const promptName = process.env.LANGFUSE_PROMPT_NAME || 'business-partner-system';
+        console.log(`[DEBUG] Attempting to fetch prompt: ${promptName}`);
         const prompt = await langfuse.getPrompt(promptName);
+        console.log(`[DEBUG] Prompt fetch result:`, prompt ? 'received' : 'null/undefined');
         
         if (prompt && prompt.prompt) {
             promptCache.content = prompt.prompt;
             promptCache.fetchedAt = now;
             console.log(`✓ System prompt fetched from Langfuse: ${promptName} (v${prompt.version})`);
             return prompt.prompt;
+        } else {
+            console.log(`[DEBUG] Prompt object missing 'prompt' property. Full object:`, JSON.stringify(prompt));
         }
     } catch (error) {
         console.log('ℹ Using fallback prompt (Langfuse prompt not found or error):', error.message);
+        console.log('[DEBUG] Full error:', error);
     }
 
     // Fallback to file-based prompt
