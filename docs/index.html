@@ -388,9 +388,19 @@
             if (!apiUrl) return;
 
             try {
-                const response = await fetch(`${apiUrl}/health`, { timeout: 5000 });
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(`${apiUrl}/health`, {
+                    signal: controller.signal,
+                    mode: 'cors'
+                });
+
+                clearTimeout(timeoutId);
+
                 if (response.ok) {
                     apiStatus.classList.add('connected');
+                    console.log('✅ Backend connected successfully');
                     return true;
                 }
             } catch (error) {
