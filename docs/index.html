@@ -333,7 +333,7 @@
         const SESSION_ID_KEY = 'business-partner-session-id';
 
         function getApiUrl() {
-            return localStorage.getItem(API_URL_KEY) || '';
+            return localStorage.getItem(API_URL_KEY) || 'https://business-partner-demo-production.up.railway.app';
         }
 
         function saveApiUrl() {
@@ -377,15 +377,10 @@
         // Initialize
         async function init() {
             const savedUrl = getApiUrl();
-            if (savedUrl) {
-                apiUrlInput.value = savedUrl;
-                configPanel.style.display = 'none';
-                await checkApiConnection();
-                initializeChat();
-            } else {
-                // Show config panel
-                configPanel.style.display = 'block';
-            }
+            apiUrlInput.value = savedUrl;
+            configPanel.style.display = 'none';
+            await checkApiConnection();
+            initializeChat();
         }
 
         async function checkApiConnection() {
