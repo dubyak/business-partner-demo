@@ -28,21 +28,23 @@ An AI-powered business partner that helps small business owners get loans and gr
 - **Business Coaching**: AI-powered advice on sales, cash flow, marketing, and more
 - **Loan Management**: Track loan status and payments
 - **Computer Vision**: Analyzes business photos to provide specific recommendations
-- **Full Observability**: Integrated with Langfuse for conversation tracking and analytics
+- **Full Observability**: Integrated with Langfuse and LangSmith for comprehensive conversation tracking and analytics
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3
 - **Backend**: Node.js, Express
 - **AI**: Anthropic Claude API (Sonnet 4)
-- **Observability**: Langfuse (conversation tracking & analytics)
+- **Observability**: Langfuse & LangSmith (conversation tracking & analytics)
 - **Hosting**: GitHub Pages (frontend) + Vercel (backend)
 
 ## 📦 Setup & Deployment
 
 See [QUICK_START.md](QUICK_START.md) for detailed deployment instructions.
 
-See [LANGFUSE_SETUP.md](LANGFUSE_SETUP.md) for observability and analytics setup.
+See [LANGFUSE_SETUP.md](LANGFUSE_SETUP.md) for Langfuse observability setup.
+
+See [LANGSMITH_SETUP.md](LANGSMITH_SETUP.md) for LangSmith observability setup.
 
 ### Quick Deploy
 

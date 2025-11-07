@@ -3,6 +3,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const { Langfuse } = require('langfuse');
+const { Client } = require('langsmith');
 require('dotenv').config();
 
 const app = express();
@@ -19,6 +20,22 @@ const langfuse = new Langfuse({
     publicKey: process.env.LANGFUSE_PUBLIC_KEY,
     baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com'
 });
+
+// Initialize LangSmith
+let langsmithClient = null;
+if (process.env.LANGSMITH_API_KEY) {
+    console.log('[LANGSMITH] Initializing with config:');
+    console.log(`  - API Key: Set (starts with ${process.env.LANGSMITH_API_KEY.substring(0, 10)}...)`);
+    console.log(`  - Project: ${process.env.LANGSMITH_PROJECT || 'business-partner-demo'}`);
+    console.log(`  - Endpoint: ${process.env.LANGSMITH_ENDPOINT || 'https://api.smith.langchain.com'}`);
+
+    langsmithClient = new Client({
+        apiKey: process.env.LANGSMITH_API_KEY,
+        apiUrl: process.env.LANGSMITH_ENDPOINT
+    });
+} else {
+    console.log('[LANGSMITH] Not initialized - LANGSMITH_API_KEY not set');
+}
 
 // Load system instructions from file (fallback)
 const systemInstructionsPath = path.join(__dirname, '..', 'system-instructions.md');
@@ -95,11 +112,12 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Business Partner API is running' });
 });
 
-// Proxy endpoint for Anthropic API with Langfuse tracing
+// Proxy endpoint for Anthropic API with Langfuse and LangSmith tracing
 app.post('/api/chat', async (req, res) => {
     const startTime = Date.now();
     let trace = null;
     let generation = null;
+    let langsmithRunId = null;
 
     try {
         const { model, max_tokens, system, messages, sessionId, userId } = req.body;
@@ -144,6 +162,36 @@ app.post('/api/chat', async (req, res) => {
                 promptSource: promptCache.content ? 'langfuse' : 'file'
             }
         });
+
+        // Create LangSmith trace if enabled
+        if (langsmithClient) {
+            try {
+                const runId = await langsmithClient.createRun({
+                    name: 'business-partner-chat',
+                    run_type: 'chain',
+                    inputs: {
+                        messages: messages,
+                        systemPrompt: systemPrompt.substring(0, 500) + '...' // Truncate for readability
+                    },
+                    project_name: process.env.LANGSMITH_PROJECT || 'business-partner-demo',
+                    tags: ['anthropic', 'claude', 'business-partner'],
+                    extra: {
+                        metadata: {
+                            model: model || 'claude-sonnet-4-20250514',
+                            max_tokens: max_tokens || 1024,
+                            sessionId: sessionId || `session-${Date.now()}`,
+                            userId: userId || 'demo-user',
+                            systemPromptLength: systemPrompt.length,
+                            messageCount: messages.length
+                        }
+                    }
+                });
+                langsmithRunId = runId;
+                console.log(`[LANGSMITH] Created run: ${runId}`);
+            } catch (error) {
+                console.error('[LANGSMITH] Error creating run:', error.message);
+            }
+        }
 
         // Call Anthropic API
         const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -205,6 +253,30 @@ app.post('/api/chat', async (req, res) => {
             });
         }
 
+        // Update LangSmith run if enabled
+        if (langsmithClient && langsmithRunId) {
+            try {
+                await langsmithClient.updateRun(langsmithRunId, {
+                    outputs: {
+                        content: data.content,
+                        stop_reason: data.stop_reason
+                    },
+                    end_time: new Date().toISOString(),
+                    extra: {
+                        usage: {
+                            input_tokens: data.usage?.input_tokens || 0,
+                            output_tokens: data.usage?.output_tokens || 0,
+                            total_tokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+                        },
+                        latency_ms: endTime - startTime
+                    }
+                });
+                console.log(`[LANGSMITH] Updated run: ${langsmithRunId}`);
+            } catch (error) {
+                console.error('[LANGSMITH] Error updating run:', error.message);
+            }
+        }
+
         // Finalize trace
         await langfuse.flushAsync();
 
@@ -212,7 +284,7 @@ app.post('/api/chat', async (req, res) => {
 
     } catch (error) {
         console.error('Error in /api/chat:', error);
-        
+
         // Log error to Langfuse
         if (generation) {
             generation.end({
@@ -220,10 +292,27 @@ app.post('/api/chat', async (req, res) => {
                 statusMessage: error.message
             });
         }
-        
-        res.status(500).json({ 
-            error: 'Internal server error', 
-            message: error.message 
+
+        // Log error to LangSmith
+        if (langsmithClient && langsmithRunId) {
+            try {
+                await langsmithClient.updateRun(langsmithRunId, {
+                    error: error.message,
+                    end_time: new Date().toISOString(),
+                    outputs: {
+                        error: error.message,
+                        stack: error.stack
+                    }
+                });
+                console.log(`[LANGSMITH] Updated run with error: ${langsmithRunId}`);
+            } catch (updateError) {
+                console.error('[LANGSMITH] Error updating run with error:', updateError.message);
+            }
+        }
+
+        res.status(500).json({
+            error: 'Internal server error',
+            message: error.message
         });
     }
 });
