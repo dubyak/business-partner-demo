@@ -3,8 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Business Partner - Multi-Agent AI Demo</title>
+    <title>Business Partner</title>
     <style>
+        :root {
+            /* Android App Design System Colors */
+            --primary-teal: #4DB8B8;
+            --primary-orange: #E67E4D;
+            --background-cream: #FFF9F5;
+            --background-light-peach: #FFF0E6;
+            --text-primary: #2D3436;
+            --text-secondary: #636E72;
+            --success-green: #00B894;
+            --error-red: #D63031;
+            --border-light: #DFE6E9;
+            --white: #FFFFFF;
+
+            /* Spacing */
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+
+            /* Border Radius */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --radius-full: 9999px;
+
+            /* Shadows */
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,7 +46,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f5f5;
+            background: var(--background-cream);
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -26,50 +59,30 @@
             max-width: 800px;
             margin: 0 auto;
             width: 100%;
-            background: white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            background: var(--white);
+            box-shadow: var(--shadow-lg);
         }
 
         .chat-header {
-            background: #4A90A4;
+            background: linear-gradient(135deg, var(--primary-teal) 0%, #3A9999 100%);
             color: white;
-            padding: 20px;
+            padding: var(--spacing-lg);
             text-align: center;
             font-size: 18px;
-            font-weight: 500;
-            position: relative;
-        }
-
-        .chat-header .subtitle {
-            font-size: 12px;
-            opacity: 0.9;
-            margin-top: 4px;
-        }
-
-        .api-status {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #ccc;
-        }
-
-        .api-status.connected {
-            background: #4ade80;
+            font-weight: 600;
+            letter-spacing: 0.5px;
         }
 
         .messages-container {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
-            background: #f5f5f5;
+            padding: var(--spacing-lg);
+            background: var(--background-cream);
         }
 
         .message {
             display: flex;
-            margin-bottom: 20px;
+            margin-bottom: var(--spacing-lg);
             animation: slideIn 0.3s ease-out;
         }
 
@@ -96,72 +109,82 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: #4A90A4;
+            background: linear-gradient(135deg, var(--primary-teal) 0%, var(--primary-orange) 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-size: 12px;
             flex-shrink: 0;
+            font-weight: 600;
         }
 
         .message.assistant .message-avatar {
-            margin-right: 12px;
+            margin-right: var(--spacing-md);
         }
 
         .message.user .message-avatar {
-            margin-left: 12px;
+            margin-left: var(--spacing-md);
             order: 2;
-            background: #d0d0d0;
+            background: linear-gradient(135deg, #d0d0d0 0%, #b0b0b0 100%);
         }
 
         .message-content {
             max-width: 70%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            line-height: 1.5;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            line-height: 1.6;
             font-size: 15px;
+            box-shadow: var(--shadow-sm);
         }
 
         .message.assistant .message-content {
-            background: #D4EAEF;
-            color: #1a1a1a;
-            border-bottom-left-radius: 4px;
+            background: var(--white);
+            color: var(--text-primary);
+            border-bottom-left-radius: var(--radius-sm);
         }
 
         .message.user .message-content {
-            background: #E8E8E8;
-            color: #1a1a1a;
-            border-bottom-right-radius: 4px;
+            background: linear-gradient(135deg, var(--background-light-peach) 0%, #FFE5D9 100%);
+            color: var(--text-primary);
+            border-bottom-right-radius: var(--radius-sm);
         }
 
         .message-content img {
             max-width: 100%;
-            border-radius: 8px;
-            margin-top: 8px;
+            border-radius: var(--radius-sm);
+            margin-top: var(--spacing-sm);
             display: block;
         }
 
         .input-container {
-            padding: 16px;
-            background: white;
-            border-top: 1px solid #e0e0e0;
+            padding: var(--spacing-md);
+            background: var(--white);
+            border-top: 1px solid var(--border-light);
             display: flex;
-            gap: 12px;
+            gap: var(--spacing-md);
             align-items: center;
         }
 
         .attachment-btn {
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border: none;
-            background: none;
+            background: var(--background-cream);
+            border-radius: 50%;
             cursor: pointer;
             font-size: 24px;
-            color: #666;
+            color: var(--primary-teal);
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .attachment-btn:hover {
+            background: var(--primary-teal);
+            color: var(--white);
+            transform: scale(1.05);
         }
 
         .input-wrapper {
@@ -171,24 +194,30 @@
 
         #messageInput {
             width: 100%;
-            padding: 12px 16px;
-            border: none;
-            background: #f5f5f5;
-            border-radius: 24px;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: 2px solid var(--border-light);
+            background: var(--background-cream);
+            border-radius: var(--radius-full);
             font-size: 15px;
             outline: none;
             font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        #messageInput:focus {
+            border-color: var(--primary-teal);
+            background: var(--white);
         }
 
         #messageInput::placeholder {
-            color: #999;
+            color: var(--text-secondary);
         }
 
         .send-btn {
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border: none;
-            background: #4A90A4;
+            background: var(--primary-orange);
             border-radius: 50%;
             cursor: pointer;
             display: flex;
@@ -196,30 +225,34 @@
             justify-content: center;
             color: white;
             font-size: 18px;
-            transition: background 0.2s;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
         }
 
         .send-btn:hover:not(:disabled) {
-            background: #3a7a8a;
+            background: #D5703D;
+            transform: scale(1.05);
+            box-shadow: var(--shadow-md);
         }
 
         .send-btn:disabled {
-            background: #ccc;
+            background: var(--border-light);
             cursor: not-allowed;
+            transform: scale(1);
         }
 
         .typing-indicator {
             display: flex;
             align-items: center;
-            gap: 4px;
-            padding: 12px 16px;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-md) var(--spacing-lg);
         }
 
         .typing-indicator span {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #4A90A4;
+            background: var(--primary-orange);
             animation: typing 1.4s infinite;
         }
 
@@ -248,10 +281,11 @@
 
         .image-preview {
             display: inline-block;
-            margin-top: 8px;
+            margin-top: var(--spacing-sm);
             max-width: 200px;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             overflow: hidden;
+            box-shadow: var(--shadow-sm);
         }
 
         .image-preview img {
@@ -259,65 +293,396 @@
             display: block;
         }
 
-        .config-panel {
-            background: #fffbeb;
-            border: 1px solid #fbbf24;
-            padding: 12px;
-            margin: 12px;
-            border-radius: 8px;
-            font-size: 13px;
+        .quick-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+            margin-top: var(--spacing-sm);
         }
 
-        .config-panel input {
+        .quick-action-btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--white);
+            border: 2px solid var(--primary-orange);
+            color: var(--primary-orange);
+            border-radius: var(--radius-full);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-action-btn:hover {
+            background: var(--primary-orange);
+            color: var(--white);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Loan Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .loan-modal {
+            background: var(--white);
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
             width: 100%;
-            padding: 8px;
-            margin-top: 8px;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            font-size: 13px;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUpModal 0.3s ease;
+            box-shadow: var(--shadow-lg);
         }
 
-        .config-panel button {
-            margin-top: 8px;
-            padding: 8px 16px;
-            background: #4A90A4;
-            color: white;
+        @keyframes slideUpModal {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-lg);
+            border-bottom: 1px solid var(--border-light);
+            position: sticky;
+            top: 0;
+            background: var(--white);
+            z-index: 10;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .close-btn {
+            background: none;
             border: none;
-            border-radius: 4px;
+            font-size: 24px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: var(--spacing-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: var(--background-cream);
+            color: var(--text-primary);
+        }
+
+        .modal-content {
+            padding: var(--spacing-lg);
+        }
+
+        .amount-display {
+            font-size: 40px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: var(--spacing-lg) 0;
+            text-align: center;
+        }
+
+        .slider-container {
+            margin: var(--spacing-xl) 0;
+        }
+
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(to right, var(--primary-teal) 0%, var(--primary-orange) 100%);
+            outline: none;
+            -webkit-appearance: none;
             cursor: pointer;
         }
 
-        .config-panel button:hover {
-            background: #3a7a8a;
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--primary-orange);
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            border: 3px solid var(--white);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--primary-orange);
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            border: 3px solid var(--white);
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: var(--spacing-sm);
+            font-weight: 500;
+        }
+
+        .payment-schedule {
+            margin: var(--spacing-lg) 0;
+        }
+
+        .section-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .payment-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-sm);
+            background: var(--background-cream);
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .payment-option:hover {
+            border-color: var(--primary-orange);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .payment-option.selected {
+            background: var(--background-light-peach);
+            border-color: var(--primary-orange);
+            box-shadow: var(--shadow-md);
+        }
+
+        .payment-amount {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .payment-frequency {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .payment-count {
+            text-align: right;
+        }
+
+        .payment-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .payment-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .details-list {
+            margin: var(--spacing-lg) 0;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: var(--spacing-sm) 0;
+            font-size: 14px;
+        }
+
+        .detail-label {
+            color: var(--text-secondary);
+        }
+
+        .detail-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .detail-row.total {
+            border-top: 2px solid var(--border-light);
+            padding-top: var(--spacing-md);
+            margin-top: var(--spacing-md);
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .checkbox-container input[type="checkbox"] {
+            margin-top: 3px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--primary-orange);
+        }
+
+        .checkbox-label {
+            color: var(--text-secondary);
+        }
+
+        .checkbox-label a {
+            color: var(--primary-orange);
+            text-decoration: underline;
+        }
+
+        .btn {
+            width: 100%;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: none;
+            border-radius: var(--radius-full);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: var(--primary-orange);
+            color: var(--white);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-primary:hover {
+            background: #D5703D;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border-light);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-md);
+            color: var(--text-primary);
+        }
+
+        .info-text {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .info-text strong {
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .modal-screen {
+            display: none;
+        }
+
+        .modal-screen.active {
+            display: block;
+        }
+
+        .success-icon {
+            font-size: 64px;
+            text-align: center;
+            margin: var(--spacing-lg) 0;
+        }
+
+        .success-message {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .success-subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-xl);
         }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <div class="api-status" id="apiStatus"></div>
-            Business Partner - Multi-Agent AI
-            <div class="subtitle">Powered by LangGraph + Langfuse</div>
-        </div>
-
-        <div class="config-panel" id="configPanel">
-            <strong>⚙️ Configure Backend URL</strong>
-            <input type="text" id="apiUrlInput" placeholder="Enter your Python backend URL (e.g., https://your-backend.com)" />
-            <button onclick="saveApiUrl()">Save & Connect</button>
-            <div style="margin-top: 8px; color: #666;">
-                Or use: <code style="background:#fff;padding:2px 6px;border-radius:3px;">http://localhost:8000</code> for local testing
-            </div>
+            Business Partner
         </div>
 
         <div class="messages-container" id="messagesContainer">
-            <!-- Messages will be added here -->
+            <div class="message assistant">
+                <div class="message-avatar">BP</div>
+                <div class="message-content">
+                    ¡Hola! 👋 I'm your AI business partner, here to help you grow and access the credit you need.<br><br>
+                    You've already proven yourself with 3 successful loan cycles—now let's unlock something bigger. Larger loans. Better terms. And personalized coaching to help you hit your goals. 🚀<br><br>
+                    <strong>Here's how this works:</strong> We'll have a quick conversation about your business, I'll analyze some photos to give you real insights, and then I'll present you with a tailored loan offer. If you accept, I become your partner in growth.<br><br>
+                    Ready? Tell me about your business! 💼
+                </div>
+            </div>
         </div>
 
         <div class="input-container">
             <button class="attachment-btn" id="attachBtn" title="Attach image">
                 <span>+</span>
             </button>
-            <input type="file" id="fileInput" accept="image/*" multiple />
+            <input type="file" id="fileInput" accept="image/*" />
             <div class="input-wrapper">
                 <input type="text" id="messageInput" placeholder="Type a message..." />
             </div>
@@ -327,32 +692,186 @@
         </div>
     </div>
 
+    <!-- Loan Modal -->
+    <div class="modal-overlay" id="loanModal">
+        <div class="loan-modal">
+            <!-- Screen 1: Choose Amount -->
+            <div class="modal-screen active" id="screen-amount">
+                <div class="modal-header">
+                    <h2 class="modal-title">Choose loan amount</h2>
+                    <button class="close-btn" onclick="closeLoanModal()">✕</button>
+                </div>
+                <div class="modal-content">
+                    <div class="amount-display" id="displayAmount">$5,000</div>
+
+                    <div class="slider-container">
+                        <input type="range" min="1000" max="10000" value="5000" step="500" class="slider" id="amountSlider">
+                        <div class="slider-labels">
+                            <span>$1,000</span>
+                            <span>$10,000</span>
+                        </div>
+                    </div>
+
+                    <div class="payment-schedule">
+                        <label class="section-label">Choose payment schedule</label>
+
+                        <div class="payment-option" data-payments="1">
+                            <div>
+                                <div class="payment-amount">$5,550</div>
+                                <div class="payment-frequency">45 days</div>
+                            </div>
+                            <div class="payment-count">
+                                <div class="payment-number">1</div>
+                                <div class="payment-label">Payment</div>
+                            </div>
+                        </div>
+
+                        <div class="payment-option selected" data-payments="3">
+                            <div>
+                                <div class="payment-amount">$1,850</div>
+                                <div class="payment-frequency">every 15 days</div>
+                            </div>
+                            <div class="payment-count">
+                                <div class="payment-number">3</div>
+                                <div class="payment-label">Payments</div>
+                            </div>
+                        </div>
+
+                        <div class="payment-option" data-payments="6">
+                            <div>
+                                <div class="payment-amount">$975</div>
+                                <div class="payment-frequency">weekly</div>
+                            </div>
+                            <div class="payment-count">
+                                <div class="payment-number">6</div>
+                                <div class="payment-label">Payments</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="showModalScreen('screen-terms')">Continue</button>
+                </div>
+            </div>
+
+            <!-- Screen 2: Accept Terms -->
+            <div class="modal-screen" id="screen-terms">
+                <div class="modal-header">
+                    <h2 class="modal-title">Review & Accept</h2>
+                    <button class="close-btn" onclick="closeLoanModal()">✕</button>
+                </div>
+                <div class="modal-content">
+                    <h3 class="section-title">Loan Details</h3>
+
+                    <div class="details-list">
+                        <div class="detail-row">
+                            <span class="detail-label">Loan amount</span>
+                            <span class="detail-value">$5,000</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Processing fee</span>
+                            <span class="detail-value">$150</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Interest (11% flat)</span>
+                            <span class="detail-value">$550</span>
+                        </div>
+                        <div class="detail-row total">
+                            <span class="detail-label">Total to repay</span>
+                            <span class="detail-value">$5,550</span>
+                        </div>
+                    </div>
+
+                    <div class="details-list">
+                        <div class="detail-row">
+                            <span class="detail-label">Payment schedule</span>
+                            <span class="detail-value">3 payments of $1,850</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Frequency</span>
+                            <span class="detail-value">Every 15 days</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Term</span>
+                            <span class="detail-value">45 days</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: var(--spacing-xl);">
+                        <p class="info-text">
+                            <strong>Late payment fee</strong>
+                            If you don't pay before the due date, you'll be charged an additional fee of 15% of the amount due.
+                        </p>
+
+                        <p class="info-text">
+                            <strong>Identity verification</strong>
+                            By accepting, you authorize us to verify your identity and credit information.
+                        </p>
+                    </div>
+
+                    <div style="margin-top: var(--spacing-lg);">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="terms1">
+                            <label for="terms1" class="checkbox-label">
+                                I agree to the <a href="#" onclick="return false;">Terms and Conditions</a> and the terms of credit information.
+                            </label>
+                        </div>
+
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="terms2">
+                            <label for="terms2" class="checkbox-label">
+                                I accept the <a href="#" onclick="return false;">Privacy Policy</a> and authorize the use of communications about products and services.
+                            </label>
+                        </div>
+
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="terms3">
+                            <label for="terms3" class="checkbox-label">
+                                I expressly authorize the platform to process this credit application and manage the loan.
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" style="margin-top: var(--spacing-xl);" onclick="acceptLoan()">Accept loan</button>
+                </div>
+            </div>
+
+            <!-- Screen 3: Success -->
+            <div class="modal-screen" id="screen-success">
+                <div class="modal-header">
+                    <h2 class="modal-title">Loan Approved!</h2>
+                    <button class="close-btn" onclick="closeLoanModal()">✕</button>
+                </div>
+                <div class="modal-content">
+                    <div class="success-icon">🎉</div>
+                    <h3 class="success-message">Congratulations!</h3>
+                    <p class="success-subtitle">Your loan has been approved and funds will arrive in your account within 24 hours.</p>
+
+                    <div class="amount-display" style="margin: var(--spacing-xl) 0;">$5,000</div>
+
+                    <div class="details-list">
+                        <div class="detail-row">
+                            <span class="detail-label">First payment due</span>
+                            <span class="detail-value">15 days from today</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Payment amount</span>
+                            <span class="detail-value">$1,850</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" style="margin-top: var(--spacing-xl);" onclick="closeLoanModalWithMessage()">Start conversation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Configuration
-        const API_URL_KEY = 'business-partner-api-url';
-        const SESSION_ID_KEY = 'business-partner-session-id';
-
-        function getApiUrl() {
-            return localStorage.getItem(API_URL_KEY) || 'https://business-partner-demo-production.up.railway.app';
-        }
-
-        function saveApiUrl() {
-            const url = document.getElementById('apiUrlInput').value.trim();
-            if (url) {
-                // Remove trailing slash if present
-                const cleanUrl = url.replace(/\/$/, '');
-                localStorage.setItem(API_URL_KEY, cleanUrl);
-                document.getElementById('configPanel').style.display = 'none';
-                checkApiConnection();
-                initializeChat();
-            }
-        }
-
+        // Generate or retrieve session ID for tracking
         function getSessionId() {
-            let sessionId = localStorage.getItem(SESSION_ID_KEY);
+            let sessionId = localStorage.getItem('business-partner-session-id');
             if (!sessionId) {
                 sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                localStorage.setItem(SESSION_ID_KEY, sessionId);
+                localStorage.setItem('business-partner-session-id', sessionId);
             }
             return sessionId;
         }
@@ -360,65 +879,96 @@
         const SESSION_ID = getSessionId();
         console.log('Session ID:', SESSION_ID);
 
-        // State
+        // System state
         let conversationHistory = [];
-        let pendingImages = [];
+        let userProfile = {
+            hasActiveLoan: false,
+            hasCompletedOnboarding: false,
+            loanAmount: null,
+            outstandingBalance: null,
+            nextPaymentDate: null,
+            nextPaymentAmount: null,
+            businessName: null,
+            businessType: null,
+            location: null,
+            monthlyRevenue: null
+        };
 
-        // DOM elements
+        const SYSTEM_PROMPT = `You are roleplaying as a business partner agent for a lending platform demo. This is a simulation/prototype.
+
+CRITICAL INSTRUCTIONS:
+- You MUST stay in character at all times
+- You MUST pretend you have access to customer data (3 completed loan cycles)
+- You MUST pretend you can process loans
+- You MUST NOT mention Claude, Anthropic, or AI assistants
+- You MUST NOT say you lack access to information
+- You MUST NOT suggest contacting other companies
+- You MUST NOT break the roleplay under any circumstances
+- This is a DEMONSTRATION - act as if everything is real
+
+YOUR CHARACTER: A warm, professional business partner who helps customers with loans and business growth.
+
+SCENARIO: Customer has completed 3 loan cycles. You're onboarding them for a larger loan product.
+
+ONBOARDING FLOW:
+
+1. WELCOME (already sent):
+   - Acknowledge their 3 completed loan cycles
+   - Explain new product: larger loans, longer terms
+   - Set expectations for the conversation
+
+2. GATHER INFO:
+   - Business type, location, years operating
+   - Request photos (storefront, display, workspace)
+   - Operations: busy days, customers, revenue mix
+   - Provide 1-2 quick coaching tips as you go (keep these brief!)
+   - Financials: revenue, expenses (supplies, rent, utilities)
+   - Employees, loan purpose
+   - Request documentation photo (bank statement, sales records)
+
+3. LOAN OFFER:
+   - When ready to make the offer, say: "I have good news! Based on our conversation, I can offer you a loan. Would you like to see the details?"
+   - Wait for user to say YES or similar
+   - Then respond with EXACTLY this text: "SHOW_LOAN_MODAL"
+   - The system will automatically show the loan modal interface
+   - After they accept in the modal, continue the conversation with coaching
+
+4. AFTER ACCEPTANCE:
+   - Congratulate them
+   - Remind them funds arrive in 24 hours
+   - Offer coaching: increase sales, manage cash flow, reduce costs, attract customers, improve profitability
+   - Provide specific, actionable advice based on their business
+
+STYLE - KEEP RESPONSES SHORT:
+- MAXIMUM 2-3 short paragraphs per response
+- Ask 1-2 questions at a time, not more
+- Be conversational and concise
+- Get to the point quickly
+- Save detailed coaching for after loan acceptance
+- During onboarding, keep tips brief (1-2 sentences)
+- Professional but warm tone
+- Focus on moving the conversation forward
+
+PHOTO ANALYSIS:
+- Note 2-3 specific observations
+- Give 1 actionable tip
+- Keep it brief and focused
+
+STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
+
         const messagesContainer = document.getElementById('messagesContainer');
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
         const attachBtn = document.getElementById('attachBtn');
         const fileInput = document.getElementById('fileInput');
-        const apiStatus = document.getElementById('apiStatus');
-        const configPanel = document.getElementById('configPanel');
-        const apiUrlInput = document.getElementById('apiUrlInput');
+
+        let pendingImages = [];
 
         // Initialize
-        async function init() {
-            const savedUrl = getApiUrl();
-            apiUrlInput.value = savedUrl;
-            configPanel.style.display = 'none';
-            await checkApiConnection();
-            initializeChat();
-        }
-
-        async function checkApiConnection() {
-            const apiUrl = getApiUrl();
-            if (!apiUrl) return;
-
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-                const response = await fetch(`${apiUrl}/health`, {
-                    signal: controller.signal,
-                    mode: 'cors'
-                });
-
-                clearTimeout(timeoutId);
-
-                if (response.ok) {
-                    apiStatus.classList.add('connected');
-                    console.log('✅ Backend connected successfully');
-                    return true;
-                }
-            } catch (error) {
-                console.error('API connection failed:', error);
-            }
-            apiStatus.classList.remove('connected');
-            return false;
-        }
-
-        function initializeChat() {
-            const welcomeMessage = "Hello! Welcome to your new business growth journey. I'm so glad to connect with you today.\n\nYou've been such a valued customer—successfully completing three loan cycles—and we're excited to offer you something new: larger loans with longer terms to help your business grow even more.\n\nTo get started, we'll have an onboarding conversation where I'll learn about your business and show you how I can support you. You'll share some photos and business records. After we complete onboarding, you'll receive a formal loan offer. And if you accept, I'll be here to help you increase sales, manage cash flow better, and make your business more profitable.\n\nAre you ready to tell me about your business? What type of business do you run and where are you located?\n\nTuka Pamoja";
-
-            addMessage('assistant', welcomeMessage);
-            conversationHistory.push({
-                role: "assistant",
-                content: welcomeMessage
-            });
-        }
+        conversationHistory.push({
+            role: "assistant",
+            content: "¡Hola! 👋 I'm your AI business partner, here to help you grow and access the credit you need.\n\nYou've already proven yourself with 3 successful loan cycles—now let's unlock something bigger. Larger loans. Better terms. And personalized coaching to help you hit your goals. 🚀\n\n**Here's how this works:** We'll have a quick conversation about your business, I'll analyze some photos to give you real insights, and then I'll present you with a tailored loan offer. If you accept, I become your partner in growth.\n\nReady? Tell me about your business! 💼"
+        });
 
         // Event listeners
         attachBtn.addEventListener('click', () => {
@@ -463,13 +1013,6 @@
             const images = [...pendingImages];
 
             if (!text && images.length === 0) return;
-
-            const apiUrl = getApiUrl();
-            if (!apiUrl) {
-                alert('Please configure your backend URL first');
-                configPanel.style.display = 'block';
-                return;
-            }
 
             // Disable input
             sendBtn.disabled = true;
@@ -521,14 +1064,29 @@
             try {
                 const response = await getAIResponse();
                 hideTypingIndicator();
-                addMessage('assistant', response);
-                conversationHistory.push({
-                    role: "assistant",
-                    content: response
-                });
+
+                // Check if response triggers loan modal
+                if (response.includes('SHOW_LOAN_MODAL')) {
+                    addMessage('assistant', response.replace('SHOW_LOAN_MODAL', '').trim());
+                    conversationHistory.push({
+                        role: "assistant",
+                        content: response.replace('SHOW_LOAN_MODAL', '').trim()
+                    });
+
+                    // Show loan modal after a brief delay
+                    setTimeout(() => {
+                        openLoanModal();
+                    }, 500);
+                } else {
+                    addMessage('assistant', response);
+                    conversationHistory.push({
+                        role: "assistant",
+                        content: response
+                    });
+                }
             } catch (error) {
                 hideTypingIndicator();
-                addMessage('assistant', '❌ Error connecting to backend. Please check your API URL configuration.');
+                addMessage('assistant', 'Sorry, there was an error. Please try again.');
                 console.error('Error:', error);
             }
 
@@ -544,12 +1102,13 @@
 
             const avatar = document.createElement('div');
             avatar.className = 'message-avatar';
-            avatar.textContent = sender === 'assistant' ? '🤖' : 'U';
+            avatar.textContent = sender === 'assistant' ? 'BP' : 'U';
 
             const content = document.createElement('div');
             content.className = 'message-content';
 
             if (text) {
+                // Convert markdown-style bold to HTML
                 const formattedText = text
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                     .replace(/\n/g, '<br>');
@@ -583,7 +1142,7 @@
 
             const avatar = document.createElement('div');
             avatar.className = 'message-avatar';
-            avatar.textContent = '🤖';
+            avatar.textContent = 'BP';
 
             const content = document.createElement('div');
             content.className = 'message-content';
@@ -602,17 +1161,24 @@
             }
         }
 
+        // Configuration - update this URL after deploying your backend
+        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:3000/api/chat'  // Local development
+            : 'https://business-partner-demo-teal.vercel.app/api/chat';  // Production
+
         async function getAIResponse() {
-            const apiUrl = getApiUrl();
-            const response = await fetch(`${apiUrl}/api/chat`, {
+            const response = await fetch(API_URL, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 1024,
+                    system: SYSTEM_PROMPT,
                     messages: conversationHistory,
-                    session_id: SESSION_ID,
-                    user_id: 'demo-user'
+                    sessionId: SESSION_ID,
+                    userId: 'demo-user'
                 })
             });
 
@@ -624,11 +1190,73 @@
             return data.content[0].text;
         }
 
-        // Check connection periodically
-        setInterval(checkApiConnection, 30000);
+        // Loan Modal Functions
+        function openLoanModal() {
+            document.getElementById('loanModal').classList.add('active');
+            showModalScreen('screen-amount');
+        }
 
-        // Initialize on load
-        init();
+        function closeLoanModal() {
+            document.getElementById('loanModal').classList.remove('active');
+        }
+
+        function closeLoanModalWithMessage() {
+            closeLoanModal();
+            // Add a message from assistant after loan acceptance
+            setTimeout(() => {
+                addMessage('assistant', 'Fantastic! 🎉 Your loan is approved and funds will arrive within 24 hours. Now, let\'s talk about how to make the most of this capital. What specific area would you like help with? I can advise on: increasing sales, managing cash flow, reducing costs, or attracting more customers.');
+                conversationHistory.push({
+                    role: "assistant",
+                    content: 'Fantastic! 🎉 Your loan is approved and funds will arrive within 24 hours. Now, let\'s talk about how to make the most of this capital. What specific area would you like help with? I can advise on: increasing sales, managing cash flow, reducing costs, or attracting more customers.'
+                });
+            }, 300);
+        }
+
+        function showModalScreen(screenId) {
+            const screens = document.querySelectorAll('.modal-screen');
+            screens.forEach(screen => screen.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function acceptLoan() {
+            const checkboxes = document.querySelectorAll('#screen-terms input[type="checkbox"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+            if (!allChecked) {
+                alert('Please accept all terms and conditions to continue');
+                return;
+            }
+
+            userProfile.hasActiveLoan = true;
+            userProfile.loanAmount = 5000;
+            showModalScreen('screen-success');
+        }
+
+        // Amount slider functionality
+        const slider = document.getElementById('amountSlider');
+        const displayAmount = document.getElementById('displayAmount');
+
+        slider.addEventListener('input', function() {
+            const amount = parseInt(this.value).toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
+            displayAmount.textContent = amount;
+        });
+
+        // Payment option selection
+        const paymentOptions = document.querySelectorAll('.payment-option');
+        paymentOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                paymentOptions.forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        // Auto-focus input on load
+        messageInput.focus();
     </script>
 </body>
 </html>
