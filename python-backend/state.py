@@ -44,6 +44,7 @@ class BusinessPartnerState(TypedDict):
     # Session tracking
     session_id: str
     user_id: str
+    conversation_id: Optional[str]
 
     # Business information collected during onboarding
     business_name: Optional[str]

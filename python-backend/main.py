@@ -20,6 +20,7 @@ import time
 
 from graph import graph
 from state import BusinessPartnerState
+from db import get_or_create_conversation, save_messages
 
 # Initialize FastAPI
 app = FastAPI(
@@ -100,6 +101,17 @@ async def chat(request: ChatRequest):
     session_id = request.session_id or f"session-{int(time.time())}"
     user_id = request.user_id or "demo-user"
 
+    # Get or create conversation in database
+    conversation = await get_or_create_conversation(user_id, session_id)
+    
+    # Extract conversation ID safely
+    conversation_id = conversation.get('id')
+    if not conversation_id:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create or retrieve conversation ID from database"
+        )
+
     # Create Langfuse trace for this conversation turn
     trace = langfuse.trace(
         name="business-partner-conversation",
@@ -128,6 +140,7 @@ async def chat(request: ChatRequest):
             "messages": langchain_messages[-1:],  # Only the latest user message
             "session_id": session_id,
             "user_id": user_id,
+            "conversation_id": conversation_id,
             "business_name": None,
             "business_type": None,
             "location": None,
@@ -151,6 +164,9 @@ async def chat(request: ChatRequest):
 
         # Invoke the graph
         result = graph.invoke(initial_state, config=config)
+
+        # Save messages to database
+        await save_messages(conversation_id, result["messages"])
 
         # Extract the assistant's response
         assistant_message = result["messages"][-1]

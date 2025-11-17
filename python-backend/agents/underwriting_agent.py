@@ -10,8 +10,10 @@ This agent:
 
 from typing import Dict
 from langfuse.decorators import observe, langfuse_context
+import threading
 
 from state import BusinessPartnerState, LoanOffer, PhotoInsight
+from db import save_loan_application
 
 
 class UnderwritingAgent:
@@ -122,11 +124,33 @@ class UnderwritingAgent:
             metadata={"agent": "underwriting", "demo_mode": True},
         )
 
+        # Save loan application to database
+        conversation_id = state.get('conversation_id')
+        if conversation_id and not state.get('_loan_saved'):
+            try:
+                # Run async function in background thread (fire-and-forget)
+                def run_async():
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(save_loan_application(conversation_id, state))
+                    finally:
+                        loop.close()
+                
+                thread = threading.Thread(target=run_async)
+                thread.daemon = True
+                thread.start()
+                print(f"[UNDERWRITING] Scheduled loan application save for conversation {conversation_id}")
+            except Exception as e:
+                print(f"[UNDERWRITING] Error scheduling loan save: {e}")
+
         # Return state updates
         return {
             "risk_score": risk_score,
             "loan_offer": loan_offer,
             "loan_offered": True,
+            "_loan_saved": True,
             "next_agent": None,
         }
 
