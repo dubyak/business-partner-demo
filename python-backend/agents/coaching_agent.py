@@ -12,6 +12,7 @@ import os
 from typing import Dict, List
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
+from langfuse import Langfuse
 from langfuse.decorators import observe, langfuse_context
 
 from state import BusinessPartnerState
@@ -27,19 +28,57 @@ class CoachingAgent:
             max_tokens=800,
         )
 
-    @observe(name="coaching-agent-generate")
-    def generate_coaching_advice(self, state: BusinessPartnerState) -> str:
+        # Initialize Langfuse for prompt management
+        self.langfuse = Langfuse(
+            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+            host=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+        )
+
+        # Prompt caching
+        self.system_prompt = None
+        self.prompt_cache_time = None
+        self.prompt_ttl = 60  # seconds
+
+    def get_system_prompt(self) -> str:
         """
-        Generate personalized coaching advice based on business profile and insights.
-
-        Args:
-            state: Current conversation state with business info and photo insights
-
-        Returns:
-            Formatted coaching advice as a string
+        Fetch system prompt from Langfuse with caching.
+        Falls back to default if Langfuse fetch fails.
         """
+        import time
 
-        system_prompt = """You are an experienced business coach helping small business owners grow.
+        now = time.time()
+
+        # Return cached prompt if valid
+        if self.system_prompt and self.prompt_cache_time and (now - self.prompt_cache_time < self.prompt_ttl):
+            print(f"[LANGFUSE-COACHING] Using cached prompt (age: {int(now - self.prompt_cache_time)}s)")
+            return self.system_prompt
+
+        # Try to fetch from Langfuse
+        try:
+            prompt_name = os.getenv("LANGFUSE_COACHING_PROMPT_NAME", "coaching-agent-system")
+            print(f"[LANGFUSE-COACHING] Fetching prompt: {prompt_name}")
+
+            prompt_obj = self.langfuse.get_prompt(prompt_name)
+
+            if prompt_obj and hasattr(prompt_obj, "prompt"):
+                self.system_prompt = prompt_obj.prompt
+                self.prompt_cache_time = now
+                print(f"[LANGFUSE-COACHING] ✓ Prompt fetched successfully (v{prompt_obj.version})")
+                return self.system_prompt
+            else:
+                print(f"[LANGFUSE-COACHING] ✗ Prompt object missing 'prompt' property")
+
+        except Exception as e:
+            print(f"[LANGFUSE-COACHING] ✗ Error fetching prompt: {e}")
+
+        # Fallback to default prompt
+        print("[LANGFUSE-COACHING] → Using fallback prompt")
+        return self._get_fallback_prompt()
+
+    def _get_fallback_prompt(self) -> str:
+        """Fallback system prompt if Langfuse is unavailable."""
+        return """You are an experienced business coach helping small business owners grow.
 
 Your task: Provide 3-4 specific, actionable coaching tips based on:
 - Business type and operations
@@ -53,6 +92,21 @@ Be:
 - Relevant to their specific business type
 
 Format your response as a friendly paragraph with 3-4 concrete suggestions."""
+
+    @observe(name="coaching-agent-generate")
+    def generate_coaching_advice(self, state: BusinessPartnerState) -> str:
+        """
+        Generate personalized coaching advice based on business profile and insights.
+
+        Args:
+            state: Current conversation state with business info and photo insights
+
+        Returns:
+            Formatted coaching advice as a string
+        """
+
+        # Fetch system prompt from Langfuse or use fallback
+        system_prompt = self.get_system_prompt()
 
         # Build context from state
         business_type = state.get("business_type", "business")

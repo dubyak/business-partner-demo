@@ -13,6 +13,7 @@ import base64
 from typing import Dict, List
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
+from langfuse import Langfuse
 from langfuse.decorators import observe, langfuse_context
 
 from state import BusinessPartnerState, PhotoInsight
@@ -28,6 +29,67 @@ class VisionAgent:
             max_tokens=1024,
         )
 
+        # Initialize Langfuse for prompt management
+        self.langfuse = Langfuse(
+            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+            host=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+        )
+
+        # Prompt caching
+        self.system_prompt = None
+        self.prompt_cache_time = None
+        self.prompt_ttl = 60  # seconds
+
+    def get_system_prompt(self) -> str:
+        """
+        Fetch system prompt from Langfuse with caching.
+        Falls back to default if Langfuse fetch fails.
+        """
+        import time
+
+        now = time.time()
+
+        # Return cached prompt if valid
+        if self.system_prompt and self.prompt_cache_time and (now - self.prompt_cache_time < self.prompt_ttl):
+            print(f"[LANGFUSE-VISION] Using cached prompt (age: {int(now - self.prompt_cache_time)}s)")
+            return self.system_prompt
+
+        # Try to fetch from Langfuse
+        try:
+            prompt_name = os.getenv("LANGFUSE_VISION_PROMPT_NAME", "vision-agent-system")
+            print(f"[LANGFUSE-VISION] Fetching prompt: {prompt_name}")
+
+            prompt_obj = self.langfuse.get_prompt(prompt_name)
+
+            if prompt_obj and hasattr(prompt_obj, "prompt"):
+                self.system_prompt = prompt_obj.prompt
+                self.prompt_cache_time = now
+                print(f"[LANGFUSE-VISION] ✓ Prompt fetched successfully (v{prompt_obj.version})")
+                return self.system_prompt
+            else:
+                print(f"[LANGFUSE-VISION] ✗ Prompt object missing 'prompt' property")
+
+        except Exception as e:
+            print(f"[LANGFUSE-VISION] ✗ Error fetching prompt: {e}")
+
+        # Fallback to default prompt
+        print("[LANGFUSE-VISION] → Using fallback prompt")
+        return self._get_fallback_prompt()
+
+    def _get_fallback_prompt(self) -> str:
+        """Fallback system prompt if Langfuse is unavailable."""
+        return """You are a business consultant analyzing photos of small businesses.
+
+Your task: Analyze the photo and provide:
+1. Cleanliness score (0-10): How clean and well-maintained is the space?
+2. Organization score (0-10): How organized is the inventory/workspace?
+3. Stock level: "low", "medium", or "high" - how well-stocked does it appear?
+4. 2-3 specific observations about what you see
+5. 1-2 actionable coaching tips to improve the business
+
+Be specific, practical, and encouraging. Focus on visual signals that indicate business health."""
+
     @observe(name="vision-agent-analyze")
     def analyze_photo(self, photo_b64: str, photo_index: int, business_context: Dict) -> PhotoInsight:
         """
@@ -42,16 +104,8 @@ class VisionAgent:
             PhotoInsight with structured analysis
         """
 
-        system_prompt = """You are a business consultant analyzing photos of small businesses.
-
-Your task: Analyze the photo and provide:
-1. Cleanliness score (0-10): How clean and well-maintained is the space?
-2. Organization score (0-10): How organized is the inventory/workspace?
-3. Stock level: "low", "medium", or "high" - how well-stocked does it appear?
-4. 2-3 specific observations about what you see
-5. 1-2 actionable coaching tips to improve the business
-
-Be specific, practical, and encouraging. Focus on visual signals that indicate business health."""
+        # Fetch system prompt from Langfuse or use fallback
+        system_prompt = self.get_system_prompt()
 
         # Determine media type from base64 prefix if present, default to jpeg
         media_type = "image/jpeg"
