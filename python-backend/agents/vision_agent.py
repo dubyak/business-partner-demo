@@ -40,6 +40,8 @@ class VisionAgent:
         self.system_prompt = None
         self.prompt_cache_time = None
         self.prompt_ttl = 60  # seconds
+        self.prompt_name = None
+        self.prompt_version = None
 
     def get_system_prompt(self) -> str:
         """
@@ -65,6 +67,8 @@ class VisionAgent:
             if prompt_obj and hasattr(prompt_obj, "prompt"):
                 self.system_prompt = prompt_obj.prompt
                 self.prompt_cache_time = now
+                self.prompt_name = prompt_name
+                self.prompt_version = getattr(prompt_obj, "version", None)
                 print(f"[LANGFUSE-VISION] ✓ Prompt fetched successfully (v{prompt_obj.version})")
                 return self.system_prompt
             else:
@@ -75,6 +79,8 @@ class VisionAgent:
 
         # Fallback to default prompt
         print("[LANGFUSE-VISION] → Using fallback prompt")
+        self.prompt_name = None  # Clear prompt metadata on fallback
+        self.prompt_version = None
         return self._get_fallback_prompt()
 
     def _get_fallback_prompt(self) -> str:
@@ -139,10 +145,20 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
             ),
         ]
 
-        # Add Langfuse context
+        # Add Langfuse context with prompt information
+        metadata = {
+            "agent": "vision",
+            "model": "claude-sonnet-4-20250514",
+        }
+        # Link prompt to generation if available
+        if self.prompt_name:
+            metadata["prompt_name"] = self.prompt_name
+        if self.prompt_version:
+            metadata["prompt_version"] = self.prompt_version
+        
         langfuse_context.update_current_observation(
             input={"photo_index": photo_index, "business_context": business_context},
-            metadata={"agent": "vision", "model": "claude-sonnet-4-20250514"},
+            metadata=metadata,
         )
 
         response = self.llm.invoke(messages)
