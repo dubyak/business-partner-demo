@@ -187,6 +187,49 @@
             transform: scale(1.05);
         }
 
+        .audio-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            background: var(--background-cream);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 22px;
+            color: var(--primary-orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .audio-btn:hover:not(:disabled) {
+            background: var(--primary-orange);
+            color: var(--white);
+            transform: scale(1.05);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .audio-btn.recording {
+            background: var(--primary-orange);
+            color: var(--white);
+            animation: pulse 1.2s infinite;
+        }
+
+        .audio-btn:disabled {
+            cursor: not-allowed;
+            color: var(--border-light);
+            background: var(--background-cream);
+            opacity: 0.7;
+            transform: none;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(230, 126, 77, 0.5); }
+            70% { box-shadow: 0 0 0 8px rgba(230, 126, 77, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(230, 126, 77, 0); }
+        }
+
         .input-wrapper {
             flex: 1;
             position: relative;
@@ -683,6 +726,9 @@
                 <span>+</span>
             </button>
             <input type="file" id="fileInput" accept="image/*" />
+            <button class="audio-btn" id="audioBtn" title="Hold to speak">
+                <span>🎤</span>
+            </button>
             <div class="input-wrapper">
                 <input type="text" id="messageInput" placeholder="Type a message..." />
             </div>
@@ -961,8 +1007,12 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
         const sendBtn = document.getElementById('sendBtn');
         const attachBtn = document.getElementById('attachBtn');
         const fileInput = document.getElementById('fileInput');
+        const audioBtn = document.getElementById('audioBtn');
 
         let pendingImages = [];
+        let speechRecognition = null;
+        let isRecording = false;
+        const defaultPlaceholder = messageInput.placeholder;
 
         // Initialize
         conversationHistory.push({
@@ -989,12 +1039,94 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
         });
 
         sendBtn.addEventListener('click', sendMessage);
+        audioBtn.addEventListener('click', toggleVoiceRecording);
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
             }
         });
+
+        initVoiceInput();
+
+        function initVoiceInput() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                audioBtn.disabled = true;
+                audioBtn.title = 'Voice input is not supported in this browser';
+                return;
+            }
+
+            speechRecognition = new SpeechRecognition();
+            speechRecognition.lang = navigator.language || 'en-US';
+            speechRecognition.interimResults = true;
+            speechRecognition.maxAlternatives = 1;
+            let finalTranscript = '';
+
+            speechRecognition.onstart = () => {
+                finalTranscript = '';
+                isRecording = true;
+                audioBtn.classList.add('recording');
+                audioBtn.title = 'Listening... tap to stop';
+                audioBtn.innerHTML = '<span>●</span>';
+                messageInput.placeholder = 'Listening...';
+                messageInput.value = '';
+            };
+
+            speechRecognition.onresult = (event) => {
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript + ' ';
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                messageInput.value = (finalTranscript + interimTranscript).trim();
+            };
+
+            speechRecognition.onerror = (event) => {
+                console.error('Voice input error:', event.error);
+                stopVoiceRecording(true);
+                alert('Voice input error. Please check your microphone permissions and try again.');
+            };
+
+            speechRecognition.onend = () => {
+                stopVoiceRecording(false);
+            };
+        }
+
+        function toggleVoiceRecording() {
+            if (!speechRecognition) return;
+
+            if (isRecording) {
+                speechRecognition.stop();
+            } else {
+                try {
+                    speechRecognition.start();
+                } catch (error) {
+                    if (error.message && error.message.includes('started')) {
+                        speechRecognition.stop();
+                        return;
+                    }
+                    console.error('Voice input start error:', error);
+                    alert('Unable to access the microphone. Please try again.');
+                }
+            }
+        }
+
+        function stopVoiceRecording(isError) {
+            isRecording = false;
+            audioBtn.classList.remove('recording');
+            audioBtn.title = 'Tap to start voice input';
+            audioBtn.innerHTML = '<span>🎤</span>';
+            messageInput.placeholder = defaultPlaceholder;
+
+            if (!isError) {
+                messageInput.focus();
+            }
+        }
 
         function showImagePreview(imageData) {
             const previewDiv = document.createElement('div');
