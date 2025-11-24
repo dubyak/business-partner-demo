@@ -28,6 +28,7 @@ An AI-powered business partner that helps small business owners get loans and gr
 - **Business Coaching**: AI-powered advice on sales, cash flow, marketing, and more
 - **Loan Management**: Track loan status and payments
 - **Computer Vision**: Analyzes business photos to provide specific recommendations
+- **Voice Input**: Hands-free audio capture that transcribes speech directly into the chat
 - **Full Observability**: Integrated with Langfuse and LangSmith for comprehensive conversation tracking and analytics
 
 ## 🛠️ Tech Stack
