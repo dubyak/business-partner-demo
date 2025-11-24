@@ -71,6 +71,55 @@
             font-size: 18px;
             font-weight: 600;
             letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .chat-header-title {
+            flex: 1;
+        }
+
+        .language-selector {
+            position: absolute;
+            right: var(--spacing-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .language-selector label {
+            font-size: 12px;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .language-selector select {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: var(--radius-sm);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .language-selector select:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .language-selector select:focus {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .language-selector select option {
+            background: var(--primary-teal);
+            color: white;
         }
 
         .messages-container {
@@ -706,14 +755,21 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            Business Partner
+            <div class="chat-header-title">Business Partner</div>
+            <div class="language-selector">
+                <label for="languageSelect">🌐</label>
+                <select id="languageSelect" title="Select language">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                </select>
+            </div>
         </div>
 
         <div class="messages-container" id="messagesContainer">
-            <div class="message assistant">
+            <div class="message assistant" id="initialMessage">
                 <div class="message-avatar">BP</div>
-                <div class="message-content">
-                    ¡Hola! 👋 I'm your AI business partner, here to help you grow and access the credit you need.<br><br>
+                <div class="message-content" id="initialMessageContent">
+                    Hello! 👋 I'm your AI business partner, here to help you grow and access the credit you need.<br><br>
                     You've already proven yourself with 3 successful loan cycles—now let's unlock something bigger. Larger loans. Better terms. And personalized coaching to help you hit your goals. 🚀<br><br>
                     <strong>Here's how this works:</strong> We'll have a quick conversation about your business, I'll analyze some photos to give you real insights, and then I'll present you with a tailored loan offer. If you accept, I become your partner in growth.<br><br>
                     Ready? Tell me about your business! 💼
@@ -940,7 +996,13 @@
             monthlyRevenue: null
         };
 
-        const SYSTEM_PROMPT = `You are roleplaying as a business partner agent for a lending platform demo. This is a simulation/prototype.
+        // Function to get system prompt with language instruction
+        function getSystemPrompt() {
+            const languageInstruction = selectedLanguage === 'es' 
+                ? '\n\nLANGUAGE REQUIREMENT: You MUST respond in Spanish (Español) at all times. All your responses, questions, and interactions must be in Spanish.'
+                : '\n\nLANGUAGE REQUIREMENT: You MUST respond in English at all times. All your responses, questions, and interactions must be in English.';
+            
+            return `You are roleplaying as a business partner agent for a lending platform demo. This is a simulation/prototype.
 
 CRITICAL INSTRUCTIONS:
 - You MUST stay in character at all times
@@ -950,7 +1012,7 @@ CRITICAL INSTRUCTIONS:
 - You MUST NOT say you lack access to information
 - You MUST NOT suggest contacting other companies
 - You MUST NOT break the roleplay under any circumstances
-- This is a DEMONSTRATION - act as if everything is real
+- This is a DEMONSTRATION - act as if everything is real${languageInstruction}
 
 YOUR CHARACTER: A warm, professional business partner who helps customers with loans and business growth.
 
@@ -1001,6 +1063,7 @@ PHOTO ANALYSIS:
 - Keep it brief and focused
 
 STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
+        }
 
         const messagesContainer = document.getElementById('messagesContainer');
         const messageInput = document.getElementById('messageInput');
@@ -1012,13 +1075,83 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
         let pendingImages = [];
         let speechRecognition = null;
         let isRecording = false;
-        const defaultPlaceholder = messageInput.placeholder;
+        let userStoppedRecording = false; // Track if user explicitly stopped
+        let selectedLanguage = 'en'; // Default to English
+        let defaultPlaceholder = messageInput.placeholder;
+        
+        // Language-specific placeholders
+        const placeholders = {
+            en: 'Type a message...',
+            es: 'Escribe un mensaje...'
+        };
+        
+        // Language-specific welcome messages
+        const welcomeMessages = {
+            en: "Hello! 👋 I'm your AI business partner, here to help you grow and access the credit you need.\n\nYou've already proven yourself with 3 successful loan cycles—now let's unlock something bigger. Larger loans. Better terms. And personalized coaching to help you hit your goals. 🚀\n\n**Here's how this works:** We'll have a quick conversation about your business, I'll analyze some photos to give you real insights, and then I'll present you with a tailored loan offer. If you accept, I become your partner in growth.\n\nReady? Tell me about your business! 💼",
+            es: "¡Hola! 👋 Soy tu socio comercial de IA, aquí para ayudarte a crecer y acceder al crédito que necesitas.\n\nYa te has demostrado con 3 ciclos de préstamos exitosos—ahora desbloqueemos algo más grande. Préstamos más grandes. Mejores términos. Y coaching personalizado para ayudarte a alcanzar tus metas. 🚀\n\n**Así es como funciona:** Tendremos una conversación rápida sobre tu negocio, analizaré algunas fotos para darte insights reales, y luego te presentaré una oferta de préstamo personalizada. Si aceptas, me convierto en tu socio en el crecimiento.\n\n¿Listo? ¡Cuéntame sobre tu negocio! 💼"
+        };
 
+        // Language selector
+        const languageSelect = document.getElementById('languageSelect');
+        
+        // Initialize with default language
+        function initializeLanguage() {
+            updateLanguage(selectedLanguage);
+        }
+        
+        function updateLanguage(lang) {
+            selectedLanguage = lang;
+            languageSelect.value = lang;
+            
+            // Update placeholder
+            messageInput.placeholder = placeholders[lang];
+            defaultPlaceholder = placeholders[lang];
+            
+            // Update speech recognition language
+            if (speechRecognition) {
+                speechRecognition.lang = lang === 'es' ? 'es-ES' : 'en-US';
+            }
+            
+            // Update welcome message if conversation is just starting
+            if (conversationHistory.length === 1 && conversationHistory[0].role === 'assistant') {
+                conversationHistory[0].content = welcomeMessages[lang];
+                // Update displayed message (both the initial message and any in conversation history)
+                const initialMessageContent = document.getElementById('initialMessageContent');
+                if (initialMessageContent) {
+                    const formattedText = welcomeMessages[lang]
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\n/g, '<br>');
+                    initialMessageContent.innerHTML = formattedText;
+                }
+            }
+        }
+        
+        languageSelect.addEventListener('change', (e) => {
+            const newLang = e.target.value;
+            if (newLang !== selectedLanguage) {
+                updateLanguage(newLang);
+                // If conversation has started, add a note that language changed
+                if (conversationHistory.length > 1) {
+                    const langMsg = newLang === 'es' 
+                        ? 'He cambiado el idioma a español. Continuaré respondiendo en español.'
+                        : 'I\'ve switched to English. I\'ll continue responding in English.';
+                    addMessage('assistant', langMsg);
+                    conversationHistory.push({
+                        role: "assistant",
+                        content: langMsg
+                    });
+                }
+            }
+        });
+        
         // Initialize
         conversationHistory.push({
             role: "assistant",
-            content: "¡Hola! 👋 I'm your AI business partner, here to help you grow and access the credit you need.\n\nYou've already proven yourself with 3 successful loan cycles—now let's unlock something bigger. Larger loans. Better terms. And personalized coaching to help you hit your goals. 🚀\n\n**Here's how this works:** We'll have a quick conversation about your business, I'll analyze some photos to give you real insights, and then I'll present you with a tailored loan offer. If you accept, I become your partner in growth.\n\nReady? Tell me about your business! 💼"
+            content: welcomeMessages[selectedLanguage]
         });
+        
+        // Initialize language settings
+        initializeLanguage();
 
         // Event listeners
         attachBtn.addEventListener('click', () => {
@@ -1058,18 +1191,22 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
             }
 
             speechRecognition = new SpeechRecognition();
-            speechRecognition.lang = navigator.language || 'en-US';
+            speechRecognition.lang = selectedLanguage === 'es' ? 'es-ES' : 'en-US';
             speechRecognition.interimResults = true;
+            speechRecognition.continuous = true; // Keep listening during pauses
             speechRecognition.maxAlternatives = 1;
             let finalTranscript = '';
 
             speechRecognition.onstart = () => {
                 finalTranscript = '';
                 isRecording = true;
+                userStoppedRecording = false; // Reset flag when starting
                 audioBtn.classList.add('recording');
                 audioBtn.title = 'Listening... tap to stop';
                 audioBtn.innerHTML = '<span>●</span>';
-                messageInput.placeholder = 'Listening...';
+                messageInput.placeholder = selectedLanguage === 'es' 
+                    ? 'Escuchando... (habla naturalmente, las pausas están bien)'
+                    : 'Listening... (speak naturally, pauses are OK)';
                 messageInput.value = '';
             };
 
@@ -1088,12 +1225,46 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
 
             speechRecognition.onerror = (event) => {
                 console.error('Voice input error:', event.error);
+                
+                // Only stop on critical errors (not "no-speech" which is normal during pauses)
+                if (event.error === 'no-speech') {
+                    // This is normal - just restart if we're still recording
+                    if (isRecording && !userStoppedRecording) {
+                        setTimeout(() => {
+                            try {
+                                speechRecognition.start();
+                            } catch (e) {
+                                // Already started or other issue, ignore
+                            }
+                        }, 100);
+                    }
+                    return;
+                }
+                
+                // For other errors, actually stop
                 stopVoiceRecording(true);
-                alert('Voice input error. Please check your microphone permissions and try again.');
+                if (event.error !== 'aborted') {
+                    alert('Voice input error. Please check your microphone permissions and try again.');
+                }
             };
 
             speechRecognition.onend = () => {
-                stopVoiceRecording(false);
+                // Auto-restart if user didn't explicitly stop and we're still in recording mode
+                if (isRecording && !userStoppedRecording) {
+                    setTimeout(() => {
+                        try {
+                            speechRecognition.start();
+                        } catch (error) {
+                            // If restart fails, actually stop recording
+                            if (error.name !== 'InvalidStateError') {
+                                stopVoiceRecording(false);
+                            }
+                        }
+                    }, 100);
+                } else {
+                    // User stopped or we hit an error, clean up
+                    stopVoiceRecording(false);
+                }
             };
         }
 
@@ -1101,8 +1272,11 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
             if (!speechRecognition) return;
 
             if (isRecording) {
+                // User explicitly stopping
+                userStoppedRecording = true;
                 speechRecognition.stop();
             } else {
+                userStoppedRecording = false;
                 try {
                     speechRecognition.start();
                 } catch (error) {
@@ -1118,6 +1292,7 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
 
         function stopVoiceRecording(isError) {
             isRecording = false;
+            userStoppedRecording = false; // Reset for next time
             audioBtn.classList.remove('recording');
             audioBtn.title = 'Tap to start voice input';
             audioBtn.innerHTML = '<span>🎤</span>';
@@ -1307,7 +1482,7 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
                 body: JSON.stringify({
                     model: "claude-sonnet-4-20250514",
                     max_tokens: 1024,
-                    system: SYSTEM_PROMPT,
+                    system: getSystemPrompt(),
                     messages: conversationHistory,
                     sessionId: SESSION_ID,
                     userId: 'demo-user'
