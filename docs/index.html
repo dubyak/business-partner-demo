@@ -213,6 +213,31 @@
             display: flex;
             gap: var(--spacing-md);
             align-items: center;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .input-container.drag-over {
+            background: var(--background-cream);
+            border-top: 2px dashed var(--primary-teal);
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-container.drag-over::before {
+            content: 'Drop photos here';
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary-teal);
+            color: var(--white);
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 10;
+            box-shadow: var(--shadow-md);
         }
 
         .attachment-btn {
@@ -1153,14 +1178,15 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
         // Initialize language settings
         initializeLanguage();
 
-        // Event listeners
-        attachBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
+        // Helper function to process files
+        function processFiles(files) {
+            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) {
+                return;
+            }
 
-        fileInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            files.forEach(file => {
+            imageFiles.forEach(file => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     pendingImages.push(event.target.result);
@@ -1168,7 +1194,54 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
                 };
                 reader.readAsDataURL(file);
             });
+        }
+
+        // Event listeners
+        attachBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            processFiles(e.target.files);
             fileInput.value = '';
+        });
+
+        // Drag and drop handlers
+        const inputContainer = document.querySelector('.input-container');
+        
+        inputContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            inputContainer.classList.add('drag-over');
+        });
+
+        inputContainer.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Only remove drag-over if we're leaving the container itself
+            if (!inputContainer.contains(e.relatedTarget)) {
+                inputContainer.classList.remove('drag-over');
+            }
+        });
+
+        inputContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            inputContainer.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        });
+
+        // Prevent default drag behavior on the entire page to allow dropping
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
         });
 
         sendBtn.addEventListener('click', sendMessage);
