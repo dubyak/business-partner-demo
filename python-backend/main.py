@@ -219,9 +219,6 @@ def _extract_agents_called(result: Dict) -> List[str]:
         agents_called.append("coaching")
 
     return agents_called
-
-
-# Vercel serverless handler
 handler = app
 
 if __name__ == "__main__":

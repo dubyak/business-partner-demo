@@ -99,9 +99,11 @@ To use this Python backend with the existing HTML frontend, update the API URL i
 
 ```javascript
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:8000/api/chat'  // Python backend
-    : 'https://business-partner-demo-teal.vercel.app/api/chat';
+    ? 'http://localhost:8080/api/chat'  // Local development
+    : 'https://business-partner-demo-production.up.railway.app/api/chat';  // Production (Railway)
 ```
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+run_terminal_cmd
 
 ## API Endpoints
 
