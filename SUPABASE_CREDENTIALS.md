@@ -28,7 +28,7 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2a3dzdWJ
 
 **Service Role Key (Secret - backend only!):**
 ```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2a3dzdWJnY2VkZmZjZnJnZWV2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzM4NTA4OSwiZXhwIjoyMDc4OTYxMDg5fQ.FBBGRWhRtlaoCiOu66TcQlAQfSyZxEM-plB8y7Gxi1k
+sb_secret_msTEInVVhQOHnwLYY3xnrw_Qj6pI_kS
 ```
 
 ---
@@ -76,7 +76,7 @@ LANGFUSE_BASE_URL=https://cloud.langfuse.com
 
 # Supabase Configuration
 SUPABASE_URL=https://svkwsubgcedffcfrgeev.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2a3dzdWJnY2VkZmZjZnJnZWV2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzM4NTA4OSwiZXhwIjoyMDc4OTYxMDg5fQ.FBBGRWhRtlaoCiOu66TcQlAQfSyZxEM-plB8y7Gxi1k
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_msTEInVVhQOHnwLYY3xnrw_Qj6pI_kS
 ```
 
 ---
