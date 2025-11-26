@@ -424,14 +424,17 @@ GENERAL RULES
         
         extraction_prompt = """Extract business information from this conversation. Return ONLY a JSON object with the following fields (use null if not mentioned):
 {
-  "business_type": "string or null",
-  "location": "string or null", 
-  "years_operating": "integer or null",
-  "num_employees": "integer or null",
-  "monthly_revenue": "float or null",
-  "monthly_expenses": "float or null",
-  "loan_purpose": "string or null"
+  "business_type": "string or null - e.g., 'bakery', 'restaurant', 'shop', 'salon'",
+  "location": "string or null - e.g., 'Condesa', 'Mexico City', neighborhood or city name", 
+  "years_operating": "integer or null - number of years",
+  "num_employees": "integer or null - number of employees",
+  "monthly_revenue": "float or null - monthly revenue amount",
+  "monthly_expenses": "float or null - monthly expenses amount",
+  "loan_purpose": "string or null - why they need the loan"
 }
+
+IMPORTANT: Look for business type mentions like "bakery", "restaurant", "shop", "tienda", "salon", etc.
+Look for location mentions like neighborhood names, cities, or "in [place]".
 
 Conversation:
 """ + conversation_text + """
@@ -467,7 +470,15 @@ Return ONLY the JSON object, no other text:"""
                     updates[key] = value
             
             if updates:
-                print(f"[BUSINESS-PARTNER] Extracted business info: {updates}")
+                print(f"[BUSINESS-PARTNER] ✓ Extracted business info: {updates}")
+            else:
+                print(f"[BUSINESS-PARTNER] ⚠️  No new business info extracted from conversation")
+                print(f"[BUSINESS-PARTNER]    Conversation had {user_message_count} user messages")
+                if user_message_count > 0:
+                    print(f"[BUSINESS-PARTNER]    Last few lines of conversation:")
+                    lines = conversation_text.strip().split("\n")
+                    for line in lines[-4:]:
+                        print(f"[BUSINESS-PARTNER]      {line}")
             
             return updates
             
@@ -653,15 +664,19 @@ Return ONLY the JSON object, no other text:"""
         
         if business_info:
             # Make this section VERY prominent - it's critical to prevent looping
-            context_additions.append("\n" + "="*60)
-            context_additions.append("[ALREADY COLLECTED INFORMATION - DO NOT ASK FOR THIS AGAIN]")
-            context_additions.append("="*60)
+            context_additions.append("\n" + "="*80)
+            context_additions.append("⚠️  [ALREADY COLLECTED INFORMATION - DO NOT ASK FOR THIS AGAIN] ⚠️")
+            context_additions.append("="*80)
             context_additions.append("\n".join(business_info))
-            context_additions.append("\n" + "="*60)
-            context_additions.append("**CRITICAL INSTRUCTION**: You MUST check this section before asking any questions.")
-            context_additions.append("If information is listed above, you already have it. DO NOT ask for it again.")
-            context_additions.append("Instead, acknowledge what you know and move forward with the next step.")
-            context_additions.append("="*60)
+            context_additions.append("\n" + "="*80)
+            context_additions.append("**CRITICAL INSTRUCTION**: You MUST check this section BEFORE asking any questions.")
+            context_additions.append("If information is listed above, you ALREADY HAVE IT. DO NOT ask for it again.")
+            context_additions.append("Instead, acknowledge what you know (e.g., 'I can see you have a bakery in Condesa') and move forward.")
+            context_additions.append("If you ask for information that's already listed above, you are making an error.")
+            context_additions.append("="*80 + "\n")
+            print(f"[BUSINESS-PARTNER] ✓ Added collected info to context: {len(business_info)} items")
+        else:
+            print(f"[BUSINESS-PARTNER] ⚠️  No collected business info to add to context")
 
         # Add photo insights if available
         photo_insights = state.get("photo_insights", [])
@@ -756,6 +771,11 @@ Return ONLY the JSON object, no other text:"""
         else:
             full_system_prompt = system_prompt
 
+        # DEBUG: Log what we're sending to the LLM
+        if business_info:
+            print(f"[DEBUG] Sending collected info to LLM: {business_info}")
+            print(f"[DEBUG] Context section length: {len(collected_info_section) if collected_info_section else 0}")
+
         # Build messages for Claude
         messages_for_llm = [SystemMessage(content=full_system_prompt)]
 
@@ -816,6 +836,7 @@ Return ONLY the JSON object, no other text:"""
             system_prompt = base_system_prompt
 
         # Extract business information from conversation messages
+        print(f"[BUSINESS-PARTNER] Extracting business info from {len(state.get('messages', []))} messages...")
         extracted_info = self.extract_business_info(state)
         if extracted_info:
             # Update state with extracted information
@@ -823,8 +844,18 @@ Return ONLY the JSON object, no other text:"""
             # This ensures we capture information from the latest messages
             for key, value in extracted_info.items():
                 if value is not None:  # Only update if extraction found a value
+                    old_value = state.get(key)
                     state[key] = value
-                    print(f"[BUSINESS-PARTNER] Updated state.{key} = {value}")
+                    if old_value != value:
+                        print(f"[BUSINESS-PARTNER] ✓ Updated state.{key}: '{old_value}' → '{value}'")
+                    else:
+                        print(f"[BUSINESS-PARTNER] ✓ Confirmed state.{key} = '{value}' (unchanged)")
+        else:
+            print(f"[BUSINESS-PARTNER] ⚠️  No business info extracted. Current state:")
+            print(f"[BUSINESS-PARTNER]    business_type: {state.get('business_type')}")
+            print(f"[BUSINESS-PARTNER]    location: {state.get('location')}")
+            print(f"[BUSINESS-PARTNER]    years_operating: {state.get('years_operating')}")
+            print(f"[BUSINESS-PARTNER]    num_employees: {state.get('num_employees')}")
             
             # Mark tasks as complete based on extracted info
             if "business_type" in extracted_info or "location" in extracted_info or "years_operating" in extracted_info or "num_employees" in extracted_info:
