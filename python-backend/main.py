@@ -108,12 +108,33 @@ async def chat(request: ChatRequest):
     user_id = request.user_id or "demo-user"
 
     # Create Langfuse trace for this conversation turn
+    # Include state information in metadata for debugging
+    trace_metadata = {
+        "model": request.model, 
+        "architecture": "langgraph-multi-agent", 
+        "timestamp": time.time(),
+        "session_id": session_id,
+    }
+    
+    # Add existing state info to metadata if available (for debugging state persistence)
+    if existing_state:
+        trace_metadata["existing_state"] = {
+            "business_type": existing_state.get("business_type"),
+            "location": existing_state.get("location"),
+            "years_operating": existing_state.get("years_operating"),
+            "num_employees": existing_state.get("num_employees"),
+            "monthly_revenue": existing_state.get("monthly_revenue"),
+            "monthly_expenses": existing_state.get("monthly_expenses"),
+            "loan_purpose": existing_state.get("loan_purpose"),
+        }
+        print(f"[LANGFUSE] Trace metadata includes existing_state: {trace_metadata['existing_state']}")
+    
     trace = langfuse.trace(
         name="business-partner-conversation",
         session_id=session_id,
         user_id=user_id,
         input=[msg.model_dump() for msg in request.messages],
-        metadata={"model": request.model, "architecture": "langgraph-multi-agent", "timestamp": time.time()},
+        metadata=trace_metadata,
     )
 
     try:
@@ -284,8 +305,23 @@ async def chat(request: ChatRequest):
             },
         )
 
-        # Update Langfuse trace with output
-        trace.update(output=response.model_dump(), metadata={"latency_ms": int((end_time - start_time) * 1000), "agents_called": _extract_agents_called(result)})
+        # Update Langfuse trace with output and state information for debugging
+        result_metadata = {
+            "latency_ms": int((end_time - start_time) * 1000),
+            "agents_called": _extract_agents_called(result),
+            # Add state information for debugging
+            "result_state": {
+                "business_type": result.get("business_type"),
+                "location": result.get("location"),
+                "years_operating": result.get("years_operating"),
+                "num_employees": result.get("num_employees"),
+                "monthly_revenue": result.get("monthly_revenue"),
+                "monthly_expenses": result.get("monthly_expenses"),
+                "loan_purpose": result.get("loan_purpose"),
+            },
+        }
+        trace.update(output=response.model_dump(), metadata=result_metadata)
+        print(f"[LANGFUSE] Trace updated with result_state: {result_metadata['result_state']}")
 
         # Flush Langfuse
         langfuse.flush()
