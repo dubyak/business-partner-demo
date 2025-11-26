@@ -78,26 +78,47 @@ class UnderwritingAgent:
 
     def _get_fallback_prompt(self) -> str:
         """Fallback system prompt if Langfuse is unavailable."""
-        return """You are a loan underwriting specialist for a lending platform.
+        return """You are a loan underwriting specialist for a lending platform. You work in the BACKGROUND - you do NOT speak directly to customers.
 
-Your responsibilities:
+YOUR ROLE:
 - Evaluate business information and photo insights
 - Calculate risk scores based on business profile
 - Generate appropriate loan offers with terms
+- Provide risk assessment details
 
+IMPORTANT: You are a BACKGROUND SERVICE. You do NOT generate user-facing messages. You only:
+- Calculate risk_score (0-100, higher is better)
+- Generate loan_offer (amount, term, installments, etc.)
+- Provide risk_tier ("low" | "medium" | "high")
+- List key_risk_factors (short reasons)
+- List key_strengths (short strengths)
+
+The business_partner agent will read your results and craft the customer-facing response.
+
+RISK ASSESSMENT:
 Risk factors to consider:
 - Years operating (more experience = lower risk)
 - Monthly revenue (higher revenue = lower risk)
 - Photo insights (cleanliness and organization scores)
 - Loan purpose (some purposes are lower risk)
 
-For this demo, generate standard offers:
+DEMO OFFER STANDARDS:
+For consistency in demos, generate standard offers:
 - Amount: 5,000 pesos
 - Term: 45 days
 - Installments: 3
 - Interest rate: 11% flat
+- Installment amount: ~1,850 pesos per payment
+- Total repayment: 5,550 pesos
 
-In production, you would adjust terms based on risk score and integrate with credit models."""
+RISK TIER CALCULATION:
+- risk_score >= 80: "low" risk
+- risk_score >= 60: "medium" risk
+- risk_score < 60: "high" risk
+
+Generate key_risk_factors and key_strengths as short bullet points (2-3 each).
+
+In production, you would integrate with credit models and adjust terms based on risk score."""
 
     @observe(name="underwriting-agent-calculate-risk")
     def calculate_risk_score(self, state: BusinessPartnerState) -> float:
@@ -142,6 +163,57 @@ In production, you would adjust terms based on risk score and integrate with cre
 
         # Cap at 100
         return min(score, 100.0)
+
+    def _calculate_risk_tier(self, risk_score: float) -> str:
+        """Calculate risk tier from risk score."""
+        if risk_score >= 80:
+            return "low"
+        elif risk_score >= 60:
+            return "medium"
+        else:
+            return "high"
+    
+    def _generate_risk_factors(self, risk_score: float, state: BusinessPartnerState) -> tuple[list[str], list[str]]:
+        """
+        Generate key risk factors and strengths based on business profile.
+        
+        Returns:
+            (key_risk_factors, key_strengths) as lists of short descriptions
+        """
+        risk_factors = []
+        strengths = []
+        
+        # Analyze years operating
+        years = state.get("years_operating", 0)
+        if years < 1:
+            risk_factors.append("Less than 1 year in business")
+        elif years >= 3:
+            strengths.append(f"{years} years of business experience")
+        
+        # Analyze revenue
+        revenue = state.get("monthly_revenue", 0)
+        if revenue < 20000:
+            risk_factors.append("Low monthly revenue")
+        elif revenue >= 40000:
+            strengths.append(f"Strong monthly revenue ({revenue:,.0f} pesos)")
+        
+        # Analyze photo insights
+        photo_insights = state.get("photo_insights", [])
+        if photo_insights:
+            avg_cleanliness = sum(p.get("cleanliness_score", 7) for p in photo_insights) / len(photo_insights)
+            avg_organization = sum(p.get("organization_score", 7) for p in photo_insights) / len(photo_insights)
+            if avg_cleanliness >= 8 and avg_organization >= 8:
+                strengths.append("Well-maintained and organized business space")
+            elif avg_cleanliness < 6 or avg_organization < 6:
+                risk_factors.append("Business space needs improvement")
+        
+        # Default if empty
+        if not risk_factors:
+            risk_factors.append("Standard risk profile")
+        if not strengths:
+            strengths.append("Eligible for loan consideration")
+        
+        return (risk_factors[:3], strengths[:3])  # Limit to 3 each
 
     @observe(name="underwriting-agent-generate-offer")
     def generate_loan_offer(self, risk_score: float, state: BusinessPartnerState) -> LoanOffer:
@@ -190,6 +262,12 @@ In production, you would adjust terms based on risk score and integrate with cre
 
         # Calculate risk score
         risk_score = self.calculate_risk_score(state)
+        
+        # Calculate risk tier
+        risk_tier = self._calculate_risk_tier(risk_score)
+        
+        # Generate risk factors and strengths
+        key_risk_factors, key_strengths = self._generate_risk_factors(risk_score, state)
 
         # Generate loan offer
         loan_offer = self.generate_loan_offer(risk_score, state)
@@ -238,6 +316,9 @@ In production, you would adjust terms based on risk score and integrate with cre
         # Return state updates
         return {
             "risk_score": risk_score,
+            "risk_tier": risk_tier,
+            "key_risk_factors": key_risk_factors,
+            "key_strengths": key_strengths,
             "loan_offer": loan_offer,
             "loan_offered": True,
             "_loan_saved": True,

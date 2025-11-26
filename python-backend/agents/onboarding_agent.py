@@ -56,38 +56,96 @@ class OnboardingAgent:
 
         # Try to fetch from Langfuse
         try:
-            prompt_name = os.getenv("LANGFUSE_ONBOARDING_PROMPT_NAME", "onboarding-agent-system")
-            print(f"[LANGFUSE-ONBOARDING] Fetching prompt: {prompt_name}")
+            prompt_name = os.getenv("LANGFUSE_BUSINESS_PARTNER_PROMPT_NAME", "business-partner-agent-system")
+            print(f"[LANGFUSE-BUSINESS-PARTNER] Fetching prompt: {prompt_name}")
 
             prompt_obj = self.langfuse.get_prompt(prompt_name)
 
             if prompt_obj and hasattr(prompt_obj, "prompt"):
                 self.system_prompt = prompt_obj.prompt
                 self.prompt_cache_time = now
-                print(f"[LANGFUSE-ONBOARDING] ✓ Prompt fetched successfully (v{prompt_obj.version})")
+                print(f"[LANGFUSE-BUSINESS-PARTNER] ✓ Prompt fetched successfully (v{prompt_obj.version})")
                 return self.system_prompt
             else:
-                print(f"[LANGFUSE-ONBOARDING] ✗ Prompt object missing 'prompt' property")
+                print(f"[LANGFUSE-BUSINESS-PARTNER] ✗ Prompt object missing 'prompt' property")
 
         except Exception as e:
-            print(f"[LANGFUSE-ONBOARDING] ✗ Error fetching prompt: {e}")
+            print(f"[LANGFUSE-BUSINESS-PARTNER] ✗ Error fetching prompt: {e}")
 
         # Fallback to default prompt
-        print("[LANGFUSE-ONBOARDING] → Using fallback prompt")
+        print("[LANGFUSE-BUSINESS-PARTNER] → Using fallback prompt")
         return self._get_fallback_prompt()
 
     def _get_fallback_prompt(self) -> str:
         """Fallback system prompt if Langfuse is unavailable."""
-        return """You are a friendly business partner agent for a lending platform. Help customers with loan onboarding.
+        return """You are a friendly AI business partner and orchestrator for a lending platform serving Mexican micro-business owners. You handle ALL customer-facing conversation - you are the single voice the customer interacts with.
 
-FLOW:
-1. Greet and welcome (acknowledge if they've completed previous loan cycles)
-2. Gather business info: type, location, years operating, number of employees
-3. Request photos of their business (storefront, inventory, workspace) for analysis
-4. Collect financial info: monthly revenue, monthly expenses, loan purpose
-5. Once all info is collected, route to underwriting for loan offer
+YOUR ROLE:
+- You are the primary conversational interface - all customer communication goes through you
+- You orchestrate background specialist agents (underwriting, servicing, coaching) but never mention them to customers
+- You gather business information, request photos, and explain loan offers
+- You provide empathetic support during difficult financial situations
 
-Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conversational and encouraging."""
+PHASE-BASED BEHAVIOR:
+The customer's journey has phases - adapt your approach based on the current phase:
+
+1. **onboarding**: 
+   - Gather business info: type, location, years operating, number of employees
+   - Request photos of their business (storefront, inventory, workspace) for analysis
+   - Collect financial info: monthly revenue, monthly expenses, loan purpose
+   - Only send to underwriting when ALL required tasks are complete (check completed_tasks vs required_tasks)
+   - Be conversational, encouraging, and ask 1-2 questions at a time
+
+2. **offer**:
+   - Explain the loan offer clearly (amount, term, installments, total repayment)
+   - Help them understand tradeoffs between amount, term, and payment dates
+   - Answer questions about the offer
+   - Remember: This is a PERSONAL LOAN informed by their business, not a formal business loan. We "underwrite the person, informed by their business."
+
+3. **post_disbursement**:
+   - Focus on coaching and repayment planning
+   - Help them understand payment schedules
+   - Provide business growth advice
+   - Support them in staying on track with repayments
+
+4. **delinquent**:
+   - Be empathetic and understanding
+   - Listen to their business challenges
+   - Coordinate with servicing to explore options (promise to pay, payment plans)
+   - Help them understand their situation and find solutions
+
+TASK-BASED ONBOARDING:
+- You have a checklist of required tasks (required_tasks field)
+- Mark tasks as complete (add to completed_tasks) when you successfully capture:
+  - confirm_eligibility: Basic business info (type, location)
+  - capture_business_profile: Business details (type, location, years, employees)
+  - capture_business_financials: Financial info (revenue, expenses, loan purpose)
+  - capture_business_photos: At least one photo received
+  - photo_analysis_complete: At least one photo analyzed
+- Only route to underwriting when ALL required tasks are complete
+
+PHOTO ANALYSIS:
+- When photos are provided, analyze them for:
+  - Cleanliness score (0-10)
+  - Organization score (0-10)
+  - Stock level (low/medium/high)
+  - Specific observations
+  - Actionable coaching tips
+- Use photo insights to provide personalized feedback
+
+COMMUNICATION STYLE:
+- Keep responses SHORT (2-3 paragraphs max)
+- Ask 1-2 questions at a time, not more
+- Be conversational and encouraging
+- Match their language (Spanish, English, or Spanglish)
+- Use emojis sparingly to show engagement (💰 📸 🎯 ✨)
+
+BACKGROUND AGENTS:
+- Underwriting agent: Generates loan offers and risk assessment (you explain the results)
+- Servicing agent: Handles disbursement, repayments, recovery (you explain the options)
+- Coaching agent: Provides business advice (you incorporate their advice naturally)
+
+Remember: You are the ONLY voice the customer hears. Background agents provide data, but YOU craft the response."""
 
     def _detect_photos_in_message(self, messages: list) -> list:
         """Extract base64 photos from the latest user message."""
@@ -109,7 +167,7 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
 
         return []
 
-    @observe(name="onboarding-agent-analyze-photo")
+    @observe(name="business-partner-agent-analyze-photo")
     def analyze_photo(self, photo_b64: str, photo_index: int, business_context: Dict) -> PhotoInsight:
         """
         Analyze a single business photo using Claude's vision capabilities.
@@ -124,14 +182,59 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
         """
         system_prompt = """You are a business consultant analyzing photos of small businesses.
 
-Your task: Analyze the photo and provide:
-1. Cleanliness score (0-10): How clean and well-maintained is the space?
-2. Organization score (0-10): How organized is the inventory/workspace?
-3. Stock level: "low", "medium", or "high" - how well-stocked does it appear?
-4. 2-3 specific observations about what you see
-5. 1-2 actionable coaching tips to improve the business
+Your task is to analyze EACH photo and produce a clear, practical summary for internal use. Do NOT speak directly to the customer; your output will be stored in state and summarized by another agent.
 
-Be specific, practical, and encouraging. Focus on visual signals that indicate business health."""
+For each photo, provide:
+
+1. Cleanliness score (0–10)
+   - How clean and well-maintained does the space look?
+
+2. Organization score (0–10)
+   - How organized are the products, tools, or workspace?
+
+3. Stock level: "low", "medium", or "high"
+   - Based only on what you can see, does the business appear lightly stocked, adequately stocked, or very full?
+
+4. Layout / business type (categorical)
+   - `business_layout_type` as ONE of:
+     • "street_stall"
+     • "market_stall"
+     • "small_shop"
+     • "food_stand"
+     • "salon_or_barbershop"
+     • "workshop"
+     • "home_based_other"
+     • "cannot_tell"
+
+5. Evidence flags (list)
+   - `evidence_flags`: an array with any that apply, e.g.:
+     • "has_signage"
+     • "visible_customers"
+     • "multiple_employees"
+     • "perishable_stock"
+     • "non_perishable_stock"
+     • "seating_area"
+     • "cooking_equipment"
+     • "refrigeration"
+
+6. Authenticity & duplicates
+   - `authenticity_flag`: "looks_genuine", "looks_like_stock_photo", or "unclear"
+   - `duplicate_flag`: "new_angle_or_scene" or "possible_duplicate_of_previous"
+
+7. Photo note (internal)
+   - `photo_note`: 2–3 sentences summarizing what this photo suggests about:
+     • how active or quiet the business seems,
+     • how established or improvised it appears,
+     • any obvious strength or concern.
+   - This is **for internal use only** and will NOT be shown directly to the customer.
+
+8. Coaching tips
+   - 1–2 short, actionable suggestions related to what you see (e.g., better product grouping, clearer prices, improved display). These will be paraphrased by the business partner agent.
+
+GENERAL RULES
+- Be specific and practical; avoid generic advice.
+- Be conservative: do not over-interpret unclear images.
+- If a photo looks like a stock image or does not seem to match a real small business, mark `authenticity_flag = "looks_like_stock_photo"` and mention your concern in the photo_note."""
 
         # Determine media type from base64 prefix if present, default to jpeg
         media_type = "image/jpeg"
@@ -159,7 +262,7 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
                     },
                     {
                         "type": "text",
-                        "text": f"Analyze this business photo. Context: {context_str}\n\nProvide your analysis in this exact format:\nCleanliness: [score]/10\nOrganization: [score]/10\nStock Level: [low/medium/high]\nObservations:\n- [observation 1]\n- [observation 2]\nCoaching Tips:\n- [tip 1]\n- [tip 2]",
+                        "text": f"Analyze this business photo. Context: {context_str}\n\nProvide your analysis in this exact format:\nCleanliness: [score]/10\nOrganization: [score]/10\nStock Level: [low/medium/high]\nBusiness Layout Type: [street_stall|market_stall|small_shop|food_stand|salon_or_barbershop|workshop|home_based_other|cannot_tell]\nEvidence Flags: [has_signage, visible_customers, multiple_employees, perishable_stock, non_perishable_stock, seating_area, cooking_equipment, refrigeration, etc.]\nAuthenticity Flag: [looks_genuine|looks_like_stock_photo|unclear]\nDuplicate Flag: [new_angle_or_scene|possible_duplicate_of_previous]\nPhoto Note (internal): [2-3 sentences about business activity, establishment level, strengths/concerns]\nObservations:\n- [observation 1]\n- [observation 2]\nCoaching Tips:\n- [tip 1]\n- [tip 2]",
                     },
                 ]
             ),
@@ -167,7 +270,7 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
 
         langfuse_context.update_current_observation(
             input={"photo_index": photo_index, "business_context": business_context},
-            metadata={"agent": "onboarding", "type": "photo_analysis", "model": "claude-sonnet-4-20250514"},
+            metadata={"agent": "business_partner", "type": "photo_analysis", "model": "claude-sonnet-4-20250514"},
         )
 
         response = self.llm.invoke(messages)
@@ -186,6 +289,11 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
         cleanliness_score = 7.5
         organization_score = 7.5
         stock_level = "medium"
+        business_layout_type = "cannot_tell"
+        evidence_flags = []
+        authenticity_flag = "unclear"
+        duplicate_flag = "new_angle_or_scene"
+        photo_note = None
         observations = []
         coaching_tips = []
 
@@ -215,6 +323,37 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
                 level = line.split(":")[1].strip().lower()
                 if level in ["low", "medium", "high"]:
                     stock_level = level
+            
+            elif line.lower().startswith("business_layout_type:") or line.lower().startswith("layout type:"):
+                layout = line.split(":")[1].strip().lower()
+                valid_layouts = ["street_stall", "market_stall", "small_shop", "food_stand", "salon_or_barbershop", "workshop", "home_based_other", "cannot_tell"]
+                if layout in valid_layouts:
+                    business_layout_type = layout
+            
+            elif line.lower().startswith("evidence_flags:") or line.lower().startswith("evidence:"):
+                # Parse comma-separated flags or list format
+                flags_text = line.split(":")[1].strip()
+                # Remove brackets if present
+                flags_text = flags_text.strip("[]")
+                # Split by comma
+                flags = [f.strip().strip('"').strip("'") for f in flags_text.split(",")]
+                evidence_flags = [f for f in flags if f]
+            
+            elif line.lower().startswith("authenticity flag:"):
+                auth = line.split(":")[1].strip().lower()
+                if auth in ["looks_genuine", "looks_like_stock_photo", "unclear"]:
+                    authenticity_flag = auth
+            
+            elif line.lower().startswith("duplicate flag:"):
+                dup = line.split(":")[1].strip().lower()
+                if dup in ["new_angle_or_scene", "possible_duplicate_of_previous"]:
+                    duplicate_flag = dup
+            
+            elif line.lower().startswith("photo note") and ":" in line:
+                # Extract photo note (may span multiple lines)
+                note_text = line.split(":", 1)[1].strip()
+                if note_text:
+                    photo_note = note_text
 
             # Track sections
             elif line.lower().startswith("observations:"):
@@ -229,17 +368,28 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
                     observations.append(text)
                 elif current_section == "coaching":
                     coaching_tips.append(text)
+            # Also collect photo note if it continues on next lines
+            elif current_section is None and photo_note and not line.startswith(("Cleanliness", "Organization", "Stock", "Business", "Evidence", "Authenticity", "Duplicate", "Observations", "Coaching")):
+                # Might be continuation of photo note
+                if not any(line.lower().startswith(keyword) for keyword in ["cleanliness", "organization", "stock", "business", "evidence", "authenticity", "duplicate", "observations", "coaching"]):
+                    if photo_note:
+                        photo_note += " " + line
 
         return PhotoInsight(
             photo_index=photo_index,
             cleanliness_score=cleanliness_score,
             organization_score=organization_score,
             stock_level=stock_level,
+            business_layout_type=business_layout_type,
+            evidence_flags=evidence_flags if evidence_flags else [],
+            authenticity_flag=authenticity_flag,
+            duplicate_flag=duplicate_flag,
+            photo_note=photo_note,
             insights=observations if observations else ["Photo analyzed successfully"],
             coaching_tips=coaching_tips if coaching_tips else ["Continue maintaining your business well"],
         )
 
-    @observe(name="onboarding-agent-extract-info")
+    @observe(name="business-partner-agent-extract-info")
     def extract_business_info(self, state: BusinessPartnerState) -> Dict:
         """
         Extract structured business information from conversation messages.
@@ -252,13 +402,12 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
         if not messages:
             return {}
         
-        # Build conversation context for extraction (only recent messages to save tokens)
-        # Get last 10 messages or all if less than 10
-        recent_messages = messages[-10:] if len(messages) > 10 else messages
-        
+        # Build conversation context for extraction
+        # IMPORTANT: Look at ALL messages to catch information from earlier in the conversation
+        # This is critical to prevent looping - we need to see what was already said
         conversation_text = ""
         user_message_count = 0
-        for msg in recent_messages:
+        for msg in messages:
             if hasattr(msg, "content"):
                 # Check if it's a HumanMessage
                 from langchain_core.messages import HumanMessage
@@ -310,19 +459,20 @@ Return ONLY the JSON object, no other text:"""
             import json
             extracted_data = json.loads(extracted_text)
             
-            # Only update fields that are not already set and that were extracted
+            # Update fields if extraction found values (even if state already has them)
+            # This ensures we capture information from the latest messages
             updates = {}
             for key, value in extracted_data.items():
-                if value is not None and state.get(key) is None:
+                if value is not None:  # If extraction found a value, use it
                     updates[key] = value
             
             if updates:
-                print(f"[ONBOARDING] Extracted business info: {updates}")
+                print(f"[BUSINESS-PARTNER] Extracted business info: {updates}")
             
             return updates
             
         except Exception as e:
-            print(f"[ONBOARDING] Error extracting business info: {e}")
+            print(f"[BUSINESS-PARTNER] Error extracting business info: {e}")
             return {}
 
     def _check_if_info_complete(self, state: BusinessPartnerState) -> bool:
@@ -330,6 +480,21 @@ Return ONLY the JSON object, no other text:"""
         required_fields = ["business_type", "location", "monthly_revenue", "loan_purpose"]
 
         return all(state.get(field) is not None for field in required_fields)
+    
+    def _mark_task_complete(self, state: BusinessPartnerState, task_id: str) -> None:
+        """Mark a task as completed in the state."""
+        completed_tasks = state.get("completed_tasks", [])
+        if task_id not in completed_tasks:
+            completed_tasks.append(task_id)
+            state["completed_tasks"] = completed_tasks
+            print(f"[BUSINESS-PARTNER] Task completed: {task_id}")
+    
+    def _check_all_tasks_complete(self, state: BusinessPartnerState) -> bool:
+        """Check if all required tasks are completed."""
+        required_tasks = state.get("required_tasks", [])
+        completed_tasks = set(state.get("completed_tasks", []))
+        
+        return all(task in completed_tasks for task in required_tasks)
 
     def _check_if_loan_accepted(self, messages: list) -> bool:
         """Check if the user accepted the loan offer."""
@@ -350,15 +515,15 @@ Return ONLY the JSON object, no other text:"""
     def _should_call_underwriting_agent(self, state: BusinessPartnerState) -> bool:
         """Determine if we should call the underwriting agent."""
         # Call underwriting when:
-        # - Info is complete
-        # - Photos have been analyzed
+        # - All required tasks are completed (task-based check)
+        # - At least one photo has been analyzed
         # - Loan hasn't been offered yet
 
-        info_complete = self._check_if_info_complete(state)
+        all_tasks_complete = self._check_all_tasks_complete(state)
         photos_analyzed = len(state.get("photo_insights", [])) > 0
         loan_offered = state.get("loan_offered", False)
 
-        return info_complete and photos_analyzed and not loan_offered
+        return all_tasks_complete and photos_analyzed and not loan_offered
 
     def _should_call_servicing_agent(self, state: BusinessPartnerState) -> bool:
         """Determine if we should call the servicing agent."""
@@ -428,7 +593,7 @@ Return ONLY the JSON object, no other text:"""
         
         return "general"
 
-    @observe(name="onboarding-agent-generate-response")
+    @observe(name="business-partner-agent-generate-response")
     def generate_response(self, state: BusinessPartnerState) -> str:
         """
         Generate a conversational response using Claude.
@@ -467,6 +632,7 @@ Return ONLY the JSON object, no other text:"""
         context_additions = []
         
         # Add current business info to context so agent knows what's already collected
+        # This is CRITICAL to prevent looping - the agent must see what it already knows
         business_info = []
         if state.get("business_type"):
             business_info.append(f"Business type: {state['business_type']}")
@@ -482,11 +648,20 @@ Return ONLY the JSON object, no other text:"""
             business_info.append(f"Monthly expenses: {state['monthly_expenses']:,.0f} pesos")
         if state.get("loan_purpose"):
             business_info.append(f"Loan purpose: {state['loan_purpose']}")
+        if state.get("business_name"):
+            business_info.append(f"Business name: {state['business_name']}")
         
         if business_info:
-            context_additions.append("\n[ALREADY COLLECTED INFORMATION]")
+            # Make this section VERY prominent - it's critical to prevent looping
+            context_additions.append("\n" + "="*60)
+            context_additions.append("[ALREADY COLLECTED INFORMATION - DO NOT ASK FOR THIS AGAIN]")
+            context_additions.append("="*60)
             context_additions.append("\n".join(business_info))
-            context_additions.append("\nDo NOT ask for information that is already collected above.")
+            context_additions.append("\n" + "="*60)
+            context_additions.append("**CRITICAL INSTRUCTION**: You MUST check this section before asking any questions.")
+            context_additions.append("If information is listed above, you already have it. DO NOT ask for it again.")
+            context_additions.append("Instead, acknowledge what you know and move forward with the next step.")
+            context_additions.append("="*60)
 
         # Add photo insights if available
         photo_insights = state.get("photo_insights", [])
@@ -548,11 +723,38 @@ Return ONLY the JSON object, no other text:"""
                 f"Status: {state.get('recovery_status', 'unknown')}\n"
                 f"Active: {recovery_info.get('conversation_active', False)}"
             )
+        
+        # Add coaching advice if available (from background coaching agent)
+        coaching_advice = state.get("coaching_advice")
+        if coaching_advice:
+            context_additions.append(
+                f"\n[COACHING ADVICE FROM SPECIALIST]\n"
+                f"{coaching_advice}\n"
+                f"Integrate this advice naturally into your response to the customer."
+            )
 
         # Append context to system prompt
-        full_system_prompt = system_prompt
+        # CRITICAL: Put the "ALREADY COLLECTED INFORMATION" section FIRST, before the main prompt
+        # This ensures the agent sees it prominently
         if context_additions:
-            full_system_prompt += "\n\n" + "\n".join(context_additions)
+            # Find the "ALREADY COLLECTED INFORMATION" section and move it to the top
+            collected_info_section = None
+            other_sections = []
+            for section in context_additions:
+                if "ALREADY COLLECTED INFORMATION" in section:
+                    collected_info_section = section
+                else:
+                    other_sections.append(section)
+            
+            # Build prompt with collected info FIRST
+            if collected_info_section:
+                full_system_prompt = f"{collected_info_section}\n\n{system_prompt}"
+                if other_sections:
+                    full_system_prompt += "\n\n" + "\n".join(other_sections)
+            else:
+                full_system_prompt = system_prompt + "\n\n" + "\n".join(context_additions)
+        else:
+            full_system_prompt = system_prompt
 
         # Build messages for Claude
         messages_for_llm = [SystemMessage(content=full_system_prompt)]
@@ -568,7 +770,7 @@ Return ONLY the JSON object, no other text:"""
                 "has_photo_insights": len(photo_insights) > 0,
                 "info_complete": self._check_if_info_complete(state),
             },
-            metadata={"agent": "onboarding", "model": "claude-sonnet-4-20250514"},
+            metadata={"agent": "business_partner", "model": "claude-sonnet-4-20250514"},
         )
 
         response = self.llm.invoke(messages_for_llm)
@@ -578,10 +780,10 @@ Return ONLY the JSON object, no other text:"""
 
         return response.content
 
-    @observe(name="onboarding-agent-process")
+    @observe(name="business-partner-agent-process")
     def process(self, state: BusinessPartnerState) -> Dict:
         """
-        Main entry point for the Onboarding Agent.
+        Main entry point for the Business Partner Agent.
 
         Manages conversation flow, analyzes photos, and determines routing.
         """
@@ -617,9 +819,18 @@ Return ONLY the JSON object, no other text:"""
         extracted_info = self.extract_business_info(state)
         if extracted_info:
             # Update state with extracted information
+            # IMPORTANT: Always update if extraction found a value (even if state already has it)
+            # This ensures we capture information from the latest messages
             for key, value in extracted_info.items():
-                if state.get(key) is None:  # Only update if not already set
+                if value is not None:  # Only update if extraction found a value
                     state[key] = value
+                    print(f"[BUSINESS-PARTNER] Updated state.{key} = {value}")
+            
+            # Mark tasks as complete based on extracted info
+            if "business_type" in extracted_info or "location" in extracted_info or "years_operating" in extracted_info or "num_employees" in extracted_info:
+                self._mark_task_complete(state, "capture_business_profile")
+            if "monthly_revenue" in extracted_info or "monthly_expenses" in extracted_info or "loan_purpose" in extracted_info:
+                self._mark_task_complete(state, "capture_business_financials")
         
         # Extract photos from latest message if any
         photos_in_message = self._detect_photos_in_message(state.get("messages", []))
@@ -649,14 +860,39 @@ Return ONLY the JSON object, no other text:"""
                     photo_insights.append(insight)
 
             state["photo_insights"] = photo_insights
+            
+            # Mark photo-related tasks as complete
+            if num_photos > 0:
+                self._mark_task_complete(state, "capture_business_photos")
+            if len(photo_insights) > 0:
+                self._mark_task_complete(state, "photo_analysis_complete")
 
         # Check info completeness
         info_complete = self._check_if_info_complete(state)
+        
+        # Mark eligibility task as complete if we have basic info (simplified check)
+        if state.get("business_type") and state.get("location"):
+            self._mark_task_complete(state, "confirm_eligibility")
 
         # Check for loan acceptance
         if state.get("loan_offered") and not state.get("loan_accepted"):
             if self._check_if_loan_accepted(state.get("messages", [])):
                 state["loan_accepted"] = True
+
+        # Update phase based on state
+        # If underwriting has returned an offer, move to "offer" phase
+        if state.get("loan_offer") and state.get("phase") == "onboarding":
+            state["phase"] = "offer"
+        
+        # If loan is accepted and disbursed, move to "post_disbursement" phase
+        if state.get("loan_accepted") and state.get("disbursement_status") == "completed":
+            if state.get("phase") in ["onboarding", "offer"]:
+                state["phase"] = "post_disbursement"
+        
+        # If there's a recovery status indicating delinquency, move to "delinquent" phase
+        if state.get("recovery_status") and state.get("recovery_status") not in ["resolved", "escalated", None]:
+            if state.get("phase") == "post_disbursement":
+                state["phase"] = "delinquent"
 
         # Determine routing to specialist agents
         next_agent = None
@@ -680,6 +916,8 @@ Return ONLY the JSON object, no other text:"""
             "info_complete": info_complete,
             "photos_received": num_photos > 0,
             "next_agent": next_agent,
+            "phase": state.get("phase", "onboarding"),  # Include phase in result
+            "completed_tasks": state.get("completed_tasks", []),  # Include completed tasks
         }
         
         # Include extracted business info in result so it updates state

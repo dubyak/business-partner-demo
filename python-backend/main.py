@@ -21,6 +21,8 @@ import time
 from graph import graph
 from state import BusinessPartnerState
 from db import get_or_create_conversation, save_messages
+from personas import get_persona, initialize_state_from_persona
+from api.personas import router as personas_router
 
 # Initialize FastAPI
 app = FastAPI(
@@ -37,6 +39,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include personas router
+app.include_router(personas_router, prefix="/api", tags=["personas"])
 
 # Initialize Langfuse
 langfuse = Langfuse(
@@ -68,6 +73,7 @@ class ChatRequest(BaseModel):
     model: Optional[str] = "claude-sonnet-4-20250514"
     max_tokens: Optional[int] = 1024
     system: Optional[str] = None  # Allow system override for testing
+    persona_id: Optional[str] = None  # Demo persona ID for demo mode
 
 
 class ChatResponse(BaseModel):
@@ -132,34 +138,102 @@ async def chat(request: ChatRequest):
                     langchain_messages.append(HumanMessage(content=msg.content))
             # Note: We don't add assistant messages to input, they're in state history
 
-        # Build initial state
+        # Build config for LangGraph checkpointing
         config = {"configurable": {"thread_id": session_id}}
+        
+        # Try to get existing state from checkpoint (for continuing conversations)
+        existing_state = None
+        try:
+            # Get the current state from the checkpoint
+            state_snapshot = graph.get_state(config)
+            if state_snapshot and state_snapshot.values:
+                existing_state = state_snapshot.values
+                print(f"[STATE] Loaded existing state from checkpoint for session {session_id}")
+        except Exception as e:
+            print(f"[STATE] No existing checkpoint found (new session): {e}")
+        
+        # Required tasks for onboarding phase
+        required_tasks = [
+            "confirm_eligibility",
+            "capture_business_profile",
+            "capture_business_financials",
+            "capture_business_photos",
+            "photo_analysis_complete"
+        ]
 
-        initial_state: BusinessPartnerState = {
-            "messages": langchain_messages[-1:],  # Only the latest user message
-            "session_id": session_id,
-            "user_id": user_id,
-            "conversation_id": conversation_id,
-            "business_name": None,
-            "business_type": None,
-            "location": None,
-            "years_operating": None,
-            "monthly_revenue": None,
-            "monthly_expenses": None,
-            "num_employees": None,
-            "loan_purpose": None,
-            "photos": [],
-            "photo_insights": [],
-            "risk_score": None,
-            "loan_offer": None,
-            "onboarding_stage": "info_gathering",
-            "info_complete": False,
-            "photos_received": False,
-            "loan_offered": False,
-            "loan_accepted": False,
-            "next_agent": None,
-            "system_prompt": request.system,  # Allow override for testing
-        }
+        # Build initial state - merge with existing state if available
+        if existing_state:
+            # Continue existing conversation - merge messages properly
+            # LangGraph's add_messages reducer will handle merging, but we need to include existing messages
+            existing_messages = existing_state.get("messages", [])
+            # Combine existing messages with new user message
+            combined_messages = existing_messages + langchain_messages[-1:]
+            
+            initial_state: BusinessPartnerState = {
+                **existing_state,  # Keep all existing state
+                "messages": combined_messages,  # Include full conversation history + new message
+                "conversation_id": conversation_id,  # Update conversation_id if changed
+                "system_prompt": request.system if request.system else existing_state.get("system_prompt"),
+            }
+            print(f"[STATE] Continuing conversation - preserving existing business data")
+            print(f"[STATE] Existing messages: {len(existing_messages)}, Adding: {len(langchain_messages[-1:])}")
+        else:
+            # New session - initialize fresh state
+            initial_state: BusinessPartnerState = {
+                "messages": langchain_messages[-1:],  # Only the latest user message
+                "session_id": session_id,
+                "user_id": user_id,
+                "conversation_id": conversation_id,
+                "business_name": None,
+                "business_type": None,
+                "location": None,
+                "years_operating": None,
+                "monthly_revenue": None,
+                "monthly_expenses": None,
+                "num_employees": None,
+                "loan_purpose": None,
+                "photos": [],
+                "photo_insights": [],
+                "risk_score": None,
+                "risk_tier": None,
+                "key_risk_factors": [],
+                "key_strengths": [],
+                "loan_offer": None,
+                "phase": "onboarding",  # Start in onboarding phase
+                "onboarding_stage": "info_gathering",
+                "info_complete": False,
+                "photos_received": False,
+                "loan_offered": False,
+                "loan_accepted": False,
+                "required_tasks": required_tasks,
+                "completed_tasks": [],
+                "next_agent": None,
+                "system_prompt": request.system,  # Allow override for testing
+                # Servicing fields (initialize as None)
+                "servicing_type": None,
+                "disbursement_status": None,
+                "disbursement_info": None,
+                "repayment_status": None,
+                "repayment_info": None,
+                "repayment_method": None,
+                "payment_schedule": None,
+                "repayment_impact_explanation": None,
+                "recovery_status": None,
+                "recovery_info": None,
+                "recovery_response": None,
+                "bank_account": None,
+                "persona_id": None,
+                "coaching_advice": None,
+            }
+            
+            # If persona_id is provided, initialize state from persona (demo mode)
+            if request.persona_id:
+                persona = get_persona(request.persona_id)
+                if persona:
+                    initial_state = initialize_state_from_persona(initial_state, persona)
+                    print(f"[DEMO] Initialized session with persona: {persona.name} ({persona.persona_id})")
+                else:
+                    print(f"[DEMO] Warning: Unknown persona_id: {request.persona_id}")
 
         # Invoke the graph
         result = graph.invoke(initial_state, config=config)
@@ -209,7 +283,7 @@ async def chat(request: ChatRequest):
 
 def _extract_agents_called(result: Dict) -> List[str]:
     """Extract which specialist agents were called from the result state."""
-    agents_called = ["conversation"]  # Always called
+    agents_called = ["business_partner"]  # Always called
 
     if result.get("photo_insights"):
         agents_called.append("vision")

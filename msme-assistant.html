@@ -747,6 +747,159 @@
             margin-bottom: var(--spacing-xs);
         }
 
+        /* Persona Selection Modal */
+        .persona-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: var(--spacing-lg);
+        }
+
+        .persona-modal-content {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .persona-modal-header {
+            text-align: center;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .persona-modal-header h2 {
+            font-size: 24px;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .persona-modal-header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .personas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .persona-card {
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--white);
+        }
+
+        .persona-card:hover {
+            border-color: var(--primary-teal);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .persona-card.selected {
+            border-color: var(--primary-teal);
+            background: var(--background-light-peach);
+        }
+
+        .persona-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .persona-card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .persona-card-phase {
+            font-size: 12px;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            background: var(--background-cream);
+            color: var(--text-secondary);
+            text-transform: capitalize;
+        }
+
+        .persona-card-description {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+            line-height: 1.5;
+        }
+
+        .persona-card-preview {
+            font-size: 13px;
+            color: var(--text-primary);
+            font-style: italic;
+            padding: var(--spacing-sm);
+            background: var(--background-cream);
+            border-radius: var(--radius-sm);
+            border-left: 3px solid var(--primary-teal);
+        }
+
+        .persona-modal-actions {
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: center;
+            margin-top: var(--spacing-lg);
+        }
+
+        .persona-modal-actions button {
+            padding: var(--spacing-md) var(--spacing-xl);
+            border: none;
+            border-radius: var(--radius-full);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-start {
+            background: var(--primary-teal);
+            color: var(--white);
+        }
+
+        .btn-start:hover:not(:disabled) {
+            background: #3A9999;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-start:disabled {
+            background: var(--border-light);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .btn-skip {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 2px solid var(--border-light);
+        }
+
+        .btn-skip:hover {
+            border-color: var(--text-secondary);
+            color: var(--text-primary);
+        }
+
         .modal-screen {
             display: none;
         }
@@ -813,6 +966,23 @@
             <button class="send-btn" id="sendBtn">
                 <span>▶</span>
             </button>
+        </div>
+    </div>
+
+    <!-- Persona Selection Modal -->
+    <div class="persona-modal" id="personaModal">
+        <div class="persona-modal-content">
+            <div class="persona-modal-header">
+                <h2>Choose a Demo Scenario</h2>
+                <p>Select a persona to explore different stages of the loan lifecycle</p>
+            </div>
+            <div class="personas-grid" id="personasGrid">
+                <!-- Persona cards will be inserted here -->
+            </div>
+            <div class="persona-modal-actions">
+                <button class="btn-skip" onclick="skipPersonaSelection()">Skip (Start Fresh)</button>
+                <button class="btn-start btn-primary" id="startChatBtn" onclick="startChatWithPersona()" disabled>Start Chat</button>
+            </div>
         </div>
     </div>
 
@@ -1002,6 +1172,16 @@
 
         const SESSION_ID = getSessionId();
         console.log('Session ID:', SESSION_ID);
+
+        // Persona selection state
+        let selectedPersonaId = null;
+        let availablePersonas = [];
+        const PERSONAS_API_URL = (() => {
+            const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? 'http://localhost:8080'  // Local development
+                : 'https://business-partner-demo-production.up.railway.app';  // Production
+            return `${baseUrl}/api/personas`;
+        })();
 
         // System state
         let conversationHistory = [];
@@ -1465,6 +1645,11 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
             try {
                 const response = await getAIResponse();
                 hideTypingIndicator();
+                
+                // Clear persona_id after first message (only use it once)
+                if (selectedPersonaId) {
+                    selectedPersonaId = null;
+                }
 
                 // Check if response triggers loan modal
                 if (response.includes('SHOW_LOAN_MODAL')) {
@@ -1573,13 +1758,14 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({
+                    body: JSON.stringify({
                     model: "claude-sonnet-4-20250514",
                     max_tokens: 1024,
                     system: getSystemPrompt(),
                     messages: conversationHistory,
-                    sessionId: SESSION_ID,
-                    userId: 'demo-user'
+                    session_id: SESSION_ID,
+                    user_id: 'demo-user',
+                    persona_id: selectedPersonaId  // Include persona_id only on first message
                 })
             });
 
