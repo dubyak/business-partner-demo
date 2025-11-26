@@ -239,6 +239,83 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
             coaching_tips=coaching_tips if coaching_tips else ["Continue maintaining your business well"],
         )
 
+    @observe(name="onboarding-agent-extract-info")
+    def extract_business_info(self, state: BusinessPartnerState) -> Dict:
+        """
+        Extract structured business information from conversation messages.
+        
+        Uses the LLM to parse the conversation and extract:
+        - business_type, location, years_operating, num_employees
+        - monthly_revenue, monthly_expenses, loan_purpose
+        """
+        messages = state.get("messages", [])
+        if not messages:
+            return {}
+        
+        # Build conversation context for extraction
+        conversation_text = ""
+        for msg in messages:
+            if hasattr(msg, "content"):
+                role = "User" if hasattr(msg, "type") and msg.type == "human" else "Assistant"
+                content = msg.content if isinstance(msg.content, str) else str(msg.content)
+                conversation_text += f"{role}: {content}\n"
+        
+        # Only extract if we have user messages
+        if "User:" not in conversation_text:
+            return {}
+        
+        extraction_prompt = """Extract business information from this conversation. Return ONLY a JSON object with the following fields (use null if not mentioned):
+{
+  "business_type": "string or null",
+  "location": "string or null", 
+  "years_operating": "integer or null",
+  "num_employees": "integer or null",
+  "monthly_revenue": "float or null",
+  "monthly_expenses": "float or null",
+  "loan_purpose": "string or null"
+}
+
+Conversation:
+""" + conversation_text + """
+
+Return ONLY the JSON object, no other text:"""
+
+        try:
+            extraction_messages = [
+                SystemMessage(content="You are a data extraction assistant. Extract business information from conversations and return only valid JSON."),
+                HumanMessage(content=extraction_prompt)
+            ]
+            
+            response = self.llm.invoke(extraction_messages)
+            extracted_text = response.content.strip()
+            
+            # Remove markdown code blocks if present
+            if extracted_text.startswith("```json"):
+                extracted_text = extracted_text[7:]
+            if extracted_text.startswith("```"):
+                extracted_text = extracted_text[3:]
+            if extracted_text.endswith("```"):
+                extracted_text = extracted_text[:-3]
+            extracted_text = extracted_text.strip()
+            
+            import json
+            extracted_data = json.loads(extracted_text)
+            
+            # Only update fields that are not already set and that were extracted
+            updates = {}
+            for key, value in extracted_data.items():
+                if value is not None and state.get(key) is None:
+                    updates[key] = value
+            
+            if updates:
+                print(f"[ONBOARDING] Extracted business info: {updates}")
+            
+            return updates
+            
+        except Exception as e:
+            print(f"[ONBOARDING] Error extracting business info: {e}")
+            return {}
+
     def _check_if_info_complete(self, state: BusinessPartnerState) -> bool:
         """Check if we have enough business info to proceed to underwriting."""
         required_fields = ["business_type", "location", "monthly_revenue", "loan_purpose"]
@@ -379,6 +456,28 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
 
         # Build context from state
         context_additions = []
+        
+        # Add current business info to context so agent knows what's already collected
+        business_info = []
+        if state.get("business_type"):
+            business_info.append(f"Business type: {state['business_type']}")
+        if state.get("location"):
+            business_info.append(f"Location: {state['location']}")
+        if state.get("years_operating"):
+            business_info.append(f"Years operating: {state['years_operating']}")
+        if state.get("num_employees"):
+            business_info.append(f"Employees: {state['num_employees']}")
+        if state.get("monthly_revenue"):
+            business_info.append(f"Monthly revenue: {state['monthly_revenue']:,.0f} pesos")
+        if state.get("monthly_expenses"):
+            business_info.append(f"Monthly expenses: {state['monthly_expenses']:,.0f} pesos")
+        if state.get("loan_purpose"):
+            business_info.append(f"Loan purpose: {state['loan_purpose']}")
+        
+        if business_info:
+            context_additions.append("\n[ALREADY COLLECTED INFORMATION]")
+            context_additions.append("\n".join(business_info))
+            context_additions.append("\nDo NOT ask for information that is already collected above.")
 
         # Add photo insights if available
         photo_insights = state.get("photo_insights", [])
@@ -505,6 +604,14 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
         else:
             system_prompt = base_system_prompt
 
+        # Extract business information from conversation messages
+        extracted_info = self.extract_business_info(state)
+        if extracted_info:
+            # Update state with extracted information
+            for key, value in extracted_info.items():
+                if state.get(key) is None:  # Only update if not already set
+                    state[key] = value
+        
         # Extract photos from latest message if any
         photos_in_message = self._detect_photos_in_message(state.get("messages", []))
         if photos_in_message:
