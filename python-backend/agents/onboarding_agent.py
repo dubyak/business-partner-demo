@@ -782,14 +782,28 @@ Return ONLY the JSON object, no other text:"""
         for msg in state.get("messages", []):
             messages_for_llm.append(msg)
 
-        # Add Langfuse context
+        # Add Langfuse context with state information for debugging
         langfuse_context.update_current_observation(
             input={
                 "message_count": len(state.get("messages", [])),
                 "has_photo_insights": len(photo_insights) > 0,
                 "info_complete": self._check_if_info_complete(state),
+                "state_business_info": {
+                    "business_type": state.get("business_type"),
+                    "location": state.get("location"),
+                    "years_operating": state.get("years_operating"),
+                    "num_employees": state.get("num_employees"),
+                    "monthly_revenue": state.get("monthly_revenue"),
+                    "monthly_expenses": state.get("monthly_expenses"),
+                    "loan_purpose": state.get("loan_purpose"),
+                },
+                "has_collected_info_section": collected_info_section_text is not None,
             },
-            metadata={"agent": "business_partner", "model": "claude-sonnet-4-20250514"},
+            metadata={
+                "agent": "business_partner", 
+                "model": "claude-sonnet-4-20250514",
+                "collected_info_count": len(business_info) if business_info else 0,
+            },
         )
 
         response = self.llm.invoke(messages_for_llm)
