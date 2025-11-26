@@ -252,16 +252,25 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
         if not messages:
             return {}
         
-        # Build conversation context for extraction
+        # Build conversation context for extraction (only recent messages to save tokens)
+        # Get last 10 messages or all if less than 10
+        recent_messages = messages[-10:] if len(messages) > 10 else messages
+        
         conversation_text = ""
-        for msg in messages:
+        user_message_count = 0
+        for msg in recent_messages:
             if hasattr(msg, "content"):
-                role = "User" if hasattr(msg, "type") and msg.type == "human" else "Assistant"
+                # Check if it's a HumanMessage
+                from langchain_core.messages import HumanMessage
+                is_user = isinstance(msg, HumanMessage)
+                role = "User" if is_user else "Assistant"
                 content = msg.content if isinstance(msg.content, str) else str(msg.content)
                 conversation_text += f"{role}: {content}\n"
+                if is_user:
+                    user_message_count += 1
         
         # Only extract if we have user messages
-        if "User:" not in conversation_text:
+        if user_message_count == 0:
             return {}
         
         extraction_prompt = """Extract business information from this conversation. Return ONLY a JSON object with the following fields (use null if not mentioned):
