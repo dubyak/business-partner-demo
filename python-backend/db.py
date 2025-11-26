@@ -56,7 +56,16 @@ async def get_or_create_conversation(user_id: str, session_id: str) -> Dict:
         return response.data[0]
         
     except Exception as e:
-        print(f"[DB] ✗ Error in get_or_create_conversation: {e}")
+        error_msg = str(e)
+        print(f"[DB] ✗ Error in get_or_create_conversation: {error_msg}")
+        
+        # Provide more helpful error messages for common issues
+        if "Invalid API key" in error_msg or "401" in error_msg:
+            raise ValueError(
+                "Supabase authentication failed. Please check that SUPABASE_URL and "
+                "SUPABASE_SERVICE_ROLE_KEY are correctly set in your environment variables. "
+                f"Error details: {error_msg}"
+            )
         raise
 
 
