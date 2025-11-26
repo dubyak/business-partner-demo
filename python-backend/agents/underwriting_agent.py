@@ -8,7 +8,9 @@ This agent:
 - (In production: would integrate with credit models and lending platform)
 """
 
+import os
 from typing import Dict
+from langfuse import Langfuse
 from langfuse.decorators import observe, langfuse_context
 import threading
 
@@ -18,6 +20,84 @@ from db import save_loan_application
 
 class UnderwritingAgent:
     """Agent specialized in loan underwriting and offer generation."""
+
+    def __init__(self):
+        # Initialize Langfuse for prompt management
+        self.langfuse = Langfuse(
+            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+            host=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+        )
+
+        # Prompt caching
+        self.system_prompt = None
+        self.prompt_cache_time = None
+        self.prompt_ttl = 60  # seconds
+        self.prompt_name = None
+        self.prompt_version = None
+
+    def get_system_prompt(self) -> str:
+        """
+        Fetch system prompt from Langfuse with caching.
+        Falls back to default if Langfuse fetch fails.
+        """
+        import time
+
+        now = time.time()
+
+        # Return cached prompt if valid
+        if self.system_prompt and self.prompt_cache_time and (now - self.prompt_cache_time < self.prompt_ttl):
+            print(f"[LANGFUSE-UNDERWRITING] Using cached prompt (age: {int(now - self.prompt_cache_time)}s)")
+            return self.system_prompt
+
+        # Try to fetch from Langfuse
+        try:
+            prompt_name = os.getenv("LANGFUSE_UNDERWRITING_PROMPT_NAME", "underwriting-agent-system")
+            print(f"[LANGFUSE-UNDERWRITING] Fetching prompt: {prompt_name}")
+
+            prompt_obj = self.langfuse.get_prompt(prompt_name)
+
+            if prompt_obj and hasattr(prompt_obj, "prompt"):
+                self.system_prompt = prompt_obj.prompt
+                self.prompt_cache_time = now
+                self.prompt_name = prompt_name
+                self.prompt_version = getattr(prompt_obj, "version", None)
+                print(f"[LANGFUSE-UNDERWRITING] ✓ Prompt fetched successfully (v{prompt_obj.version})")
+                return self.system_prompt
+            else:
+                print(f"[LANGFUSE-UNDERWRITING] ✗ Prompt object missing 'prompt' property")
+
+        except Exception as e:
+            print(f"[LANGFUSE-UNDERWRITING] ✗ Error fetching prompt: {e}")
+
+        # Fallback to default prompt
+        print("[LANGFUSE-UNDERWRITING] → Using fallback prompt")
+        self.prompt_name = None
+        self.prompt_version = None
+        return self._get_fallback_prompt()
+
+    def _get_fallback_prompt(self) -> str:
+        """Fallback system prompt if Langfuse is unavailable."""
+        return """You are a loan underwriting specialist for a lending platform.
+
+Your responsibilities:
+- Evaluate business information and photo insights
+- Calculate risk scores based on business profile
+- Generate appropriate loan offers with terms
+
+Risk factors to consider:
+- Years operating (more experience = lower risk)
+- Monthly revenue (higher revenue = lower risk)
+- Photo insights (cleanliness and organization scores)
+- Loan purpose (some purposes are lower risk)
+
+For this demo, generate standard offers:
+- Amount: 5,000 pesos
+- Term: 45 days
+- Installments: 3
+- Interest rate: 11% flat
+
+In production, you would adjust terms based on risk score and integrate with credit models."""
 
     @observe(name="underwriting-agent-calculate-risk")
     def calculate_risk_score(self, state: BusinessPartnerState) -> float:
@@ -104,6 +184,10 @@ class UnderwritingAgent:
         Calculates risk and generates loan offer.
         """
 
+        # Fetch system prompt (for consistency with other agents and tracking)
+        # Note: Underwriting agent uses algorithmic logic, but prompt is available for documentation
+        self.get_system_prompt()
+
         # Calculate risk score
         risk_score = self.calculate_risk_score(state)
 
@@ -111,6 +195,12 @@ class UnderwritingAgent:
         loan_offer = self.generate_loan_offer(risk_score, state)
 
         # Add Langfuse context
+        metadata = {"agent": "underwriting", "demo_mode": True}
+        if self.prompt_name:
+            metadata["prompt_name"] = self.prompt_name
+        if self.prompt_version:
+            metadata["prompt_version"] = self.prompt_version
+
         langfuse_context.update_current_observation(
             input={
                 "business_info": {
@@ -121,7 +211,7 @@ class UnderwritingAgent:
                 }
             },
             output={"risk_score": risk_score, "loan_offer": loan_offer},
-            metadata={"agent": "underwriting", "demo_mode": True},
+            metadata=metadata,
         )
 
         # Save loan application to database
