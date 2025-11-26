@@ -1026,8 +1026,8 @@
         // Function to get system prompt with language instruction
         function getSystemPrompt() {
             const languageInstruction = selectedLanguage === 'es' 
-                ? '\n\nLANGUAGE REQUIREMENT: You MUST respond in Spanish (Español) at all times. All your responses, questions, and interactions must be in Spanish.'
-                : '\n\nLANGUAGE REQUIREMENT: You MUST respond in English at all times. All your responses, questions, and interactions must be in English.';
+                ? '\n\nCRITICAL LANGUAGE REQUIREMENT: You MUST respond ONLY in Spanish (Español) at all times. Every single word, sentence, question, and interaction MUST be in Spanish. Do not mix languages. Do not use English. Respond entirely in Spanish.'
+                : '\n\nCRITICAL LANGUAGE REQUIREMENT: You MUST respond ONLY in English at all times. Every single word, sentence, question, and interaction MUST be in English. Do not mix languages. Do not use Spanish. Respond entirely in English.';
             
             return `You are roleplaying as a business partner agent for a lending platform demo. This is a simulation/prototype.
 

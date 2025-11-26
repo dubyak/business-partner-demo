@@ -352,14 +352,26 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
         # Get base system prompt from Langfuse
         base_system_prompt = self.get_system_prompt()
         
-        # If frontend sent language instruction, append it to agent prompt
-        if state.get("system_prompt") and "LANGUAGE REQUIREMENT" in state.get("system_prompt", ""):
+        # If frontend sent language instruction, extract and prepend it prominently
+        if state.get("system_prompt") and ("LANGUAGE REQUIREMENT" in state.get("system_prompt", "") or "CRITICAL LANGUAGE REQUIREMENT" in state.get("system_prompt", "")):
             frontend_prompt = state.get("system_prompt")
-            # Extract just the language instruction part
-            if "LANGUAGE REQUIREMENT" in frontend_prompt:
-                lang_start = frontend_prompt.find("LANGUAGE REQUIREMENT")
-                lang_instruction = frontend_prompt[lang_start:].split("\n\n")[0]
-                system_prompt = base_system_prompt + "\n\n" + lang_instruction
+            # Extract the language instruction - find it and get the full instruction
+            lang_keyword = "CRITICAL LANGUAGE REQUIREMENT" if "CRITICAL LANGUAGE REQUIREMENT" in frontend_prompt else "LANGUAGE REQUIREMENT"
+            if lang_keyword in frontend_prompt:
+                lang_start = frontend_prompt.find(lang_keyword)
+                # Get everything from LANGUAGE REQUIREMENT to the end of that line or next newline
+                lang_section = frontend_prompt[lang_start:]
+                # Extract up to the first double newline or end of string
+                if "\n\n" in lang_section:
+                    lang_instruction = lang_section.split("\n\n")[0]
+                elif "\n" in lang_section:
+                    # Get the full line if no double newline
+                    lang_instruction = lang_section.split("\n")[0]
+                else:
+                    lang_instruction = lang_section
+                
+                # Prepend language instruction prominently to the prompt
+                system_prompt = f"{lang_instruction}\n\n{base_system_prompt}"
             else:
                 system_prompt = base_system_prompt
         else:
@@ -467,16 +479,31 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
         """
         # Fetch system prompt if not already in state
         # Always use Langfuse prompt as base
-        system_prompt = self.get_system_prompt()
+        base_system_prompt = self.get_system_prompt()
         
-        # If frontend sent language instruction, append it to agent prompt
+        # If frontend sent language instruction, extract and prepend it prominently
         if state.get("system_prompt") and "LANGUAGE REQUIREMENT" in state.get("system_prompt", ""):
             frontend_prompt = state.get("system_prompt")
-            # Extract just the language instruction part
-            if "LANGUAGE REQUIREMENT" in frontend_prompt:
-                lang_start = frontend_prompt.find("LANGUAGE REQUIREMENT")
-                lang_instruction = frontend_prompt[lang_start:].split("\n\n")[0]
-                system_prompt += "\n\n" + lang_instruction
+            # Extract the language instruction - find it and get the full instruction
+            lang_keyword = "CRITICAL LANGUAGE REQUIREMENT" if "CRITICAL LANGUAGE REQUIREMENT" in frontend_prompt else "LANGUAGE REQUIREMENT"
+            if lang_keyword in frontend_prompt:
+                lang_start = frontend_prompt.find(lang_keyword)
+                lang_section = frontend_prompt[lang_start:]
+                # Extract up to the first double newline or end of string
+                if "\n\n" in lang_section:
+                    lang_instruction = lang_section.split("\n\n")[0]
+                elif "\n" in lang_section:
+                    # Get the full line if no double newline
+                    lang_instruction = lang_section.split("\n")[0]
+                else:
+                    lang_instruction = lang_section
+                
+                # Prepend language instruction prominently to the prompt
+                system_prompt = f"{lang_instruction}\n\n{base_system_prompt}"
+            else:
+                system_prompt = base_system_prompt
+        else:
+            system_prompt = base_system_prompt
 
         # Extract photos from latest message if any
         photos_in_message = self._detect_photos_in_message(state.get("messages", []))
