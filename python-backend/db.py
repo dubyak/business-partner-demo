@@ -6,6 +6,7 @@ to Supabase during the agent workflow.
 """
 
 import os
+import uuid
 from typing import List, Dict, Optional
 from datetime import datetime
 from supabase import create_client, Client
@@ -23,21 +24,39 @@ if not supabase_url or not supabase_key:
 supabase: Client = create_client(supabase_url, supabase_key)
 
 
+def _ensure_uuid(user_id: str) -> str:
+    """
+    Convert user_id to UUID format for database compatibility.
+    For demo purposes, generates a consistent UUID from the user_id string.
+    """
+    try:
+        # Try to parse as UUID first
+        uuid.UUID(user_id)
+        return user_id
+    except (ValueError, TypeError):
+        # Generate a consistent UUID from the string using namespace UUID
+        namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')  # DNS namespace
+        return str(uuid.uuid5(namespace, user_id))
+
+
 async def get_or_create_conversation(user_id: str, session_id: str) -> Dict:
     """
     Get existing conversation or create a new one.
     
     Args:
-        user_id: The authenticated user's ID
+        user_id: The authenticated user's ID (will be converted to UUID if needed)
         session_id: The session identifier from the client
         
     Returns:
         Dict containing conversation record with 'id', 'user_id', 'session_id'
     """
     try:
+        # Convert user_id to UUID format for database
+        user_uuid = _ensure_uuid(user_id)
+        
         # Try to find existing conversation
         response = supabase.table("conversations").select("*").eq(
-            "user_id", user_id
+            "user_id", user_uuid
         ).eq("session_id", session_id).execute()
         
         if response.data and len(response.data) > 0:
@@ -45,9 +64,9 @@ async def get_or_create_conversation(user_id: str, session_id: str) -> Dict:
             return response.data[0]
         
         # Create new conversation
-        print(f"[DB] Creating new conversation for user {user_id}, session {session_id}")
+        print(f"[DB] Creating new conversation for user {user_uuid}, session {session_id}")
         response = supabase.table("conversations").insert({
-            "user_id": user_id,
+            "user_id": user_uuid,
             "session_id": session_id,
             "title": "Loan Inquiry"  # Can be updated later with first message
         }).execute()
@@ -144,8 +163,9 @@ async def save_loan_application(conversation_id: str, state: Dict) -> Optional[D
         
         print(f"[DB] Saving loan application for conversation {conversation_id}")
         
+        user_uuid = _ensure_uuid(state['user_id'])
         response = supabase.table("loan_applications").insert({
-            "user_id": state['user_id'],
+            "user_id": user_uuid,
             "conversation_id": conversation_id,
             "loan_purpose": state.get('loan_purpose'),
             "risk_score": state.get('risk_score'),
@@ -230,8 +250,9 @@ async def save_business_profile(state: Dict) -> Optional[Dict]:
     try:
         print(f"[DB] Saving business profile for user {state['user_id']}")
         
+        user_uuid = _ensure_uuid(state['user_id'])
         response = supabase.table("business_profiles").insert({
-            "user_id": state['user_id'],
+            "user_id": user_uuid,
             "business_name": state.get('business_name'),
             "business_type": state.get('business_type'),
             "location": state.get('location'),
@@ -267,9 +288,10 @@ async def save_photo_analysis(conversation_id: str, state: Dict) -> List[Dict]:
         print(f"[DB] Saving {len(photo_insights)} photo analyses")
         
         saved = []
+        user_uuid = _ensure_uuid(state['user_id'])
         for i, insight in enumerate(photo_insights):
             response = supabase.table("photo_analyses").insert({
-                "user_id": state['user_id'],
+                "user_id": user_uuid,
                 "conversation_id": conversation_id,
                 "photo_data": photos[i] if i < len(photos) else None,
                 "cleanliness_score": insight.get('cleanliness_score'),
@@ -323,8 +345,9 @@ async def create_loan_from_application(conversation_id: str, state: Dict) -> Opt
         
         print(f"[DB] Creating loan from application {loan_application_id}")
         
+        user_uuid = _ensure_uuid(state['user_id'])
         response = supabase.table("loans").insert({
-            "user_id": state['user_id'],
+            "user_id": user_uuid,
             "loan_application_id": loan_application_id,
             "conversation_id": conversation_id,
             "loan_amount": loan_offer.get('amount'),
@@ -358,9 +381,11 @@ async def save_disbursement(loan_id: str, disbursement_info: Dict) -> Optional[D
     try:
         print(f"[DB] Saving disbursement for loan {loan_id}")
         
+        user_id = disbursement_info.get('user_id')
+        user_uuid = _ensure_uuid(user_id) if user_id else None
         response = supabase.table("disbursements").insert({
             "loan_id": loan_id,
-            "user_id": disbursement_info.get('user_id'),  # Should be in disbursement_info
+            "user_id": user_uuid,
             "amount": disbursement_info.get('amount'),
             "bank_account": disbursement_info.get('bank_account'),
             "status": disbursement_info.get('status', 'initiated'),
@@ -401,7 +426,7 @@ async def save_repayment(loan_id: str, repayment_info: Dict) -> Optional[Dict]:
         
         response = supabase.table("repayments").insert({
             "loan_id": loan_id,
-            "user_id": repayment_info.get('user_id'),  # Should be in repayment_info
+            "user_id": _ensure_uuid(repayment_info.get('user_id')) if repayment_info.get('user_id') else None,
             "installment_number": repayment_info.get('installment_number', 1),
             "amount": repayment_info.get('amount'),
             "method": repayment_info.get('method'),
@@ -454,9 +479,10 @@ async def get_or_create_recovery_conversation(loan_id: str, user_id: str, conver
         
         # Create new recovery conversation
         print(f"[DB] Creating new recovery conversation for loan {loan_id}")
+        user_uuid = _ensure_uuid(user_id)
         response = supabase.table("recovery_conversations").insert({
             "loan_id": loan_id,
-            "user_id": user_id,
+            "user_id": user_uuid,
             "conversation_id": conversation_id,
             "status": "initial",
             "outstanding_balance": outstanding_balance
