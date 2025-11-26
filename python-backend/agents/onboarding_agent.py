@@ -682,6 +682,10 @@ Return ONLY the JSON object, no other text:"""
             "next_agent": next_agent,
         }
         
+        # Include extracted business info in result so it updates state
+        if extracted_info:
+            result.update(extracted_info)
+        
         # Add servicing type if routing to servicing agent
         if servicing_type:
             result["servicing_type"] = servicing_type
