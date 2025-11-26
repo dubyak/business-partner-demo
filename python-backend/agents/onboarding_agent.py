@@ -349,7 +349,21 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
 
         Incorporates context from photo analysis if available.
         """
-        system_prompt = state.get("system_prompt") or self.get_system_prompt()
+        # Get base system prompt from Langfuse
+        base_system_prompt = self.get_system_prompt()
+        
+        # If frontend sent language instruction, append it to agent prompt
+        if state.get("system_prompt") and "LANGUAGE REQUIREMENT" in state.get("system_prompt", ""):
+            frontend_prompt = state.get("system_prompt")
+            # Extract just the language instruction part
+            if "LANGUAGE REQUIREMENT" in frontend_prompt:
+                lang_start = frontend_prompt.find("LANGUAGE REQUIREMENT")
+                lang_instruction = frontend_prompt[lang_start:].split("\n\n")[0]
+                system_prompt = base_system_prompt + "\n\n" + lang_instruction
+            else:
+                system_prompt = base_system_prompt
+        else:
+            system_prompt = base_system_prompt
 
         # Build context from state
         context_additions = []
@@ -452,10 +466,17 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
         Manages conversation flow, analyzes photos, and determines routing.
         """
         # Fetch system prompt if not already in state
-        if not state.get("system_prompt"):
-            system_prompt = self.get_system_prompt()
-        else:
-            system_prompt = state.get("system_prompt")
+        # Always use Langfuse prompt as base
+        system_prompt = self.get_system_prompt()
+        
+        # If frontend sent language instruction, append it to agent prompt
+        if state.get("system_prompt") and "LANGUAGE REQUIREMENT" in state.get("system_prompt", ""):
+            frontend_prompt = state.get("system_prompt")
+            # Extract just the language instruction part
+            if "LANGUAGE REQUIREMENT" in frontend_prompt:
+                lang_start = frontend_prompt.find("LANGUAGE REQUIREMENT")
+                lang_instruction = frontend_prompt[lang_start:].split("\n\n")[0]
+                system_prompt += "\n\n" + lang_instruction
 
         # Extract photos from latest message if any
         photos_in_message = self._detect_photos_in_message(state.get("messages", []))
