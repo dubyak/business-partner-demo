@@ -662,19 +662,24 @@ Return ONLY the JSON object, no other text:"""
         if state.get("business_name"):
             business_info.append(f"Business name: {state['business_name']}")
         
+        # Build collected info section as a SINGLE string to ensure it's handled correctly
+        collected_info_section_text = None
         if business_info:
             # Make this section VERY prominent - it's critical to prevent looping
-            context_additions.append("\n" + "="*80)
-            context_additions.append("⚠️  [ALREADY COLLECTED INFORMATION - DO NOT ASK FOR THIS AGAIN] ⚠️")
-            context_additions.append("="*80)
-            context_additions.append("\n".join(business_info))
-            context_additions.append("\n" + "="*80)
-            context_additions.append("**CRITICAL INSTRUCTION**: You MUST check this section BEFORE asking any questions.")
-            context_additions.append("If information is listed above, you ALREADY HAVE IT. DO NOT ask for it again.")
-            context_additions.append("Instead, acknowledge what you know (e.g., 'I can see you have a bakery in Condesa') and move forward.")
-            context_additions.append("If you ask for information that's already listed above, you are making an error.")
-            context_additions.append("="*80 + "\n")
+            collected_info_section_text = (
+                "\n" + "="*80 + "\n" +
+                "⚠️  [ALREADY COLLECTED INFORMATION - DO NOT ASK FOR THIS AGAIN] ⚠️\n" +
+                "="*80 + "\n" +
+                "\n".join(business_info) + "\n" +
+                "="*80 + "\n" +
+                "**CRITICAL INSTRUCTION**: You MUST check this section BEFORE asking any questions.\n" +
+                "If information is listed above, you ALREADY HAVE IT. DO NOT ask for it again.\n" +
+                "Instead, acknowledge what you know (e.g., 'I can see you have a bakery in Condesa') and move forward.\n" +
+                "If you ask for information that's already listed above, you are making an error.\n" +
+                "="*80 + "\n"
+            )
             print(f"[BUSINESS-PARTNER] ✓ Added collected info to context: {len(business_info)} items")
+            print(f"[BUSINESS-PARTNER] Collected info preview: {', '.join(business_info[:3])}...")
         else:
             print(f"[BUSINESS-PARTNER] ⚠️  No collected business info to add to context")
 
@@ -751,30 +756,24 @@ Return ONLY the JSON object, no other text:"""
         # Append context to system prompt
         # CRITICAL: Put the "ALREADY COLLECTED INFORMATION" section FIRST, before the main prompt
         # This ensures the agent sees it prominently
-        if context_additions:
-            # Find the "ALREADY COLLECTED INFORMATION" section and move it to the top
-            collected_info_section = None
-            other_sections = []
-            for section in context_additions:
-                if "ALREADY COLLECTED INFORMATION" in section:
-                    collected_info_section = section
-                else:
-                    other_sections.append(section)
-            
-            # Build prompt with collected info FIRST
-            if collected_info_section:
-                full_system_prompt = f"{collected_info_section}\n\n{system_prompt}"
-                if other_sections:
-                    full_system_prompt += "\n\n" + "\n".join(other_sections)
-            else:
-                full_system_prompt = system_prompt + "\n\n" + "\n".join(context_additions)
+        if collected_info_section_text:
+            # Put collected info FIRST, then system prompt, then other context
+            full_system_prompt = f"{collected_info_section_text}\n\n{system_prompt}"
+            if context_additions:
+                full_system_prompt += "\n\n" + "\n".join(context_additions)
+        elif context_additions:
+            # No collected info, but other context exists
+            full_system_prompt = system_prompt + "\n\n" + "\n".join(context_additions)
         else:
+            # No context additions at all
             full_system_prompt = system_prompt
 
         # DEBUG: Log what we're sending to the LLM
-        if business_info:
-            print(f"[DEBUG] Sending collected info to LLM: {business_info}")
-            print(f"[DEBUG] Context section length: {len(collected_info_section) if collected_info_section else 0}")
+        if collected_info_section_text:
+            print(f"[DEBUG] ✓ Collected info section included in prompt (length: {len(collected_info_section_text)})")
+            print(f"[DEBUG] Collected info: {', '.join(business_info[:3])}...")
+        else:
+            print(f"[DEBUG] ⚠️  No collected info section to include")
 
         # Build messages for Claude
         messages_for_llm = [SystemMessage(content=full_system_prompt)]
