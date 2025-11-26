@@ -955,14 +955,26 @@ Return ONLY the JSON object, no other text:"""
         if extracted_info:
             result.update(extracted_info)
         
-        # ALSO include existing state values to ensure they persist even if extraction didn't run
-        # This prevents state from being lost between turns
+        # ALSO include ALL existing state values to ensure they persist
+        # CRITICAL: Include fields even if they're already set - this ensures checkpoint persistence
+        # LangGraph needs fields in the result dictionary to persist them to checkpoint
         business_fields = ["business_type", "location", "years_operating", "num_employees", 
-                          "monthly_revenue", "monthly_expenses", "loan_purpose", "business_name"]
+                          "monthly_revenue", "monthly_expenses", "loan_purpose", "business_name",
+                          "photos", "photo_insights"]
         for field in business_fields:
-            if state.get(field) is not None and field not in result:
+            # Always include the field from state if it's not already in result
+            # This ensures state persists even if extraction didn't run or didn't find that field
+            if field not in result:
                 result[field] = state.get(field)
-                print(f"[BUSINESS-PARTNER] Preserving existing state.{field} = {state.get(field)}")
+                if state.get(field) is not None:
+                    print(f"[BUSINESS-PARTNER] Preserving existing state.{field} = {state.get(field)}")
+        
+        # Debug: Log what we're returning to verify all fields are included
+        print(f"[BUSINESS-PARTNER] Result state summary:")
+        print(f"  business_type={result.get('business_type')}, location={result.get('location')}")
+        print(f"  years={result.get('years_operating')}, employees={result.get('num_employees')}")
+        print(f"  revenue={result.get('monthly_revenue')}, expenses={result.get('monthly_expenses')}")
+        print(f"  loan_purpose={result.get('loan_purpose')}")
         
         # Add servicing type if routing to servicing agent
         if servicing_type:
