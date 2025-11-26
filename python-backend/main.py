@@ -169,14 +169,33 @@ async def chat(request: ChatRequest):
             # Combine existing messages with new user message
             combined_messages = existing_messages + langchain_messages[-1:]
             
+            # CRITICAL: Explicitly preserve ALL business fields from existing state
+            # Don't rely on **existing_state spread alone - explicitly set each field
             initial_state: BusinessPartnerState = {
                 **existing_state,  # Keep all existing state
                 "messages": combined_messages,  # Include full conversation history + new message
                 "conversation_id": conversation_id,  # Update conversation_id if changed
                 "system_prompt": request.system if request.system else existing_state.get("system_prompt"),
+                # Explicitly preserve business fields to ensure they persist
+                "business_type": existing_state.get("business_type"),
+                "location": existing_state.get("location"),
+                "years_operating": existing_state.get("years_operating"),
+                "num_employees": existing_state.get("num_employees"),
+                "monthly_revenue": existing_state.get("monthly_revenue"),
+                "monthly_expenses": existing_state.get("monthly_expenses"),
+                "loan_purpose": existing_state.get("loan_purpose"),
+                "business_name": existing_state.get("business_name"),
+                "photos": existing_state.get("photos", []),
+                "photo_insights": existing_state.get("photo_insights", []),
+                "phase": existing_state.get("phase", "onboarding"),
+                "completed_tasks": existing_state.get("completed_tasks", []),
             }
             print(f"[STATE] Continuing conversation - preserving existing business data")
             print(f"[STATE] Existing messages: {len(existing_messages)}, Adding: {len(langchain_messages[-1:])}")
+            print(f"[STATE] Business type: {existing_state.get('business_type')}, Location: {existing_state.get('location')}")
+            print(f"[STATE] Years: {existing_state.get('years_operating')}, Employees: {existing_state.get('num_employees')}")
+            print(f"[STATE] Revenue: {existing_state.get('monthly_revenue')}, Expenses: {existing_state.get('monthly_expenses')}")
+            print(f"[STATE] Loan purpose: {existing_state.get('loan_purpose')}")
         else:
             # New session - initialize fresh state
             initial_state: BusinessPartnerState = {
