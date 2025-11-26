@@ -775,11 +775,157 @@
             color: var(--text-secondary);
             margin-bottom: var(--spacing-xl);
         }
+
+        /* Scenario Selector Landing Page */
+        .scenario-selector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: var(--spacing-xl);
+            background: var(--background-cream);
+        }
+
+        .scenario-selector.hidden {
+            display: none;
+        }
+
+        .scenario-selector-header {
+            text-align: center;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .scenario-selector-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .scenario-selector-subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .scenario-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing-lg);
+            max-width: 900px;
+            width: 100%;
+            margin-top: var(--spacing-xl);
+        }
+
+        .scenario-card {
+            background: var(--white);
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .scenario-card:hover {
+            border-color: var(--primary-teal);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .scenario-card-icon {
+            font-size: 48px;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .scenario-card-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .scenario-card-description {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .scenario-card.new {
+            border-color: var(--primary-teal);
+        }
+
+        .scenario-card.active-good {
+            border-color: var(--success-green);
+        }
+
+        .scenario-card.past-due {
+            border-color: var(--primary-orange);
+        }
+
+        .chat-container.hidden {
+            display: none;
+        }
+
+        .reset-demo-btn {
+            position: absolute;
+            left: var(--spacing-lg);
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-full);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .reset-demo-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
     </style>
 </head>
 <body>
-    <div class="chat-container">
+    <!-- Scenario Selector Landing Page -->
+    <div class="scenario-selector" id="scenarioSelector">
+        <div class="scenario-selector-header">
+            <h1 class="scenario-selector-title">Choose Your Demo Experience</h1>
+            <p class="scenario-selector-subtitle">Select a customer scenario to explore different parts of the business partner journey</p>
+        </div>
+        <div class="scenario-cards">
+            <div class="scenario-card new" data-scenario="new">
+                <div class="scenario-card-icon">🌱</div>
+                <div class="scenario-card-title">New Customer</div>
+                <div class="scenario-card-description">
+                    Experience the full onboarding journey from the beginning. Perfect for seeing how the agent builds relationships and explains products to first-time customers.
+                </div>
+            </div>
+            <div class="scenario-card active-good" data-scenario="active_good">
+                <div class="scenario-card-icon">✅</div>
+                <div class="scenario-card-title">Active Loan - Good Standing</div>
+                <div class="scenario-card-description">
+                    See how the agent helps customers with active loans. Explore ongoing coaching, business growth support, and potential for additional loan products.
+                </div>
+            </div>
+            <div class="scenario-card past-due" data-scenario="past_due">
+                <div class="scenario-card-icon">⚠️</div>
+                <div class="scenario-card-title">Past Due - Payment Support</div>
+                <div class="scenario-card-description">
+                    Explore how the agent assists customers who are behind on payments. See empathetic support, problem-solving, and finding solutions together.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chatContainer">
         <div class="chat-header">
+            <button class="reset-demo-btn" id="resetDemoBtn" title="Reset demo">↺ Reset Demo</button>
             <div class="chat-header-title">Business Partner</div>
             <div class="language-selector">
                 <label for="languageSelect">🌐</label>
@@ -794,10 +940,7 @@
             <div class="message assistant" id="initialMessage">
                 <div class="message-avatar">BP</div>
                 <div class="message-content" id="initialMessageContent">
-                    Hello! 👋 I'm your AI business partner, here to help you grow and access the credit you need.<br><br>
-                    You've already proven yourself with 3 successful loan cycles—now let's unlock something bigger. Larger loans. Better terms. And personalized coaching to help you hit your goals. 🚀<br><br>
-                    <strong>Here's how this works:</strong> We'll have a quick conversation about your business, I'll analyze some photos to give you real insights, and then I'll present you with a tailored loan offer. If you accept, I become your partner in growth.<br><br>
-                    Ready? Tell me about your business! 💼
+                    <!-- Welcome message will be populated by JavaScript based on selected scenario -->
                 </div>
             </div>
         </div>
@@ -1006,6 +1149,9 @@
         const SESSION_ID = getSessionId();
         console.log('Session ID:', SESSION_ID);
 
+        // Scenario management
+        let currentScenario = localStorage.getItem('current-scenario') || null;
+        
         // System state
         let conversationHistory = [];
         let userProfile = {
@@ -1021,34 +1167,103 @@
             monthlyRevenue: null
         };
 
-        // Function to get system prompt with language instruction
+        // Initialize scenario - sets userProfile based on selected scenario
+        function initializeScenario(scenario) {
+            currentScenario = scenario;
+            localStorage.setItem('current-scenario', scenario);
+            
+            // Reset user profile
+            userProfile = {
+                hasActiveLoan: false,
+                hasCompletedOnboarding: false,
+                loanAmount: null,
+                outstandingBalance: null,
+                nextPaymentDate: null,
+                nextPaymentAmount: null,
+                businessName: null,
+                businessType: null,
+                location: null,
+                monthlyRevenue: null
+            };
+
+            if (scenario === 'new') {
+                // New customer - fresh start
+                userProfile.hasActiveLoan = false;
+                userProfile.hasCompletedOnboarding = false;
+            } else if (scenario === 'active_good') {
+                // Active loan in good standing
+                userProfile.hasActiveLoan = true;
+                userProfile.hasCompletedOnboarding = true;
+                userProfile.loanAmount = 5000;
+                userProfile.outstandingBalance = 3000;
+                // Next payment is in the future (15 days from now)
+                const futureDate = new Date();
+                futureDate.setDate(futureDate.getDate() + 15);
+                userProfile.nextPaymentDate = futureDate.toISOString().split('T')[0];
+                userProfile.nextPaymentAmount = 1850;
+                userProfile.businessName = "Sample Business";
+                userProfile.businessType = "Retail";
+                userProfile.monthlyRevenue = 8000;
+            } else if (scenario === 'past_due') {
+                // Past due customer
+                userProfile.hasActiveLoan = true;
+                userProfile.hasCompletedOnboarding = true;
+                userProfile.loanAmount = 5000;
+                userProfile.outstandingBalance = 3700;
+                // Next payment is in the past (5 days ago)
+                const pastDate = new Date();
+                pastDate.setDate(pastDate.getDate() - 5);
+                userProfile.nextPaymentDate = pastDate.toISOString().split('T')[0];
+                userProfile.nextPaymentAmount = 1850;
+                userProfile.businessName = "Sample Business";
+                userProfile.businessType = "Retail";
+                userProfile.monthlyRevenue = 6000;
+            }
+        }
+
+        // Show scenario selector or chat based on current scenario
+        function showScenarioSelector() {
+            document.getElementById('scenarioSelector').classList.remove('hidden');
+            document.getElementById('chatContainer').classList.add('hidden');
+        }
+
+        function showChat() {
+            document.getElementById('scenarioSelector').classList.add('hidden');
+            document.getElementById('chatContainer').classList.remove('hidden');
+        }
+
+        // Initialize UI based on scenario
+        if (!currentScenario) {
+            showScenarioSelector();
+        } else {
+            initializeScenario(currentScenario);
+            showChat();
+        }
+
+        // Function to get system prompt with language instruction and scenario context
         function getSystemPrompt() {
             const languageInstruction = selectedLanguage === 'es' 
                 ? '\n\nLANGUAGE REQUIREMENT: You MUST respond in Spanish (Español) at all times. All your responses, questions, and interactions must be in Spanish.'
                 : '\n\nLANGUAGE REQUIREMENT: You MUST respond in English at all times. All your responses, questions, and interactions must be in English.';
             
-            return `You are roleplaying as a business partner agent for a lending platform demo. This is a simulation/prototype.
+            let scenarioContext = '';
+            let flowInstructions = '';
 
-CRITICAL INSTRUCTIONS:
-- You MUST stay in character at all times
-- You MUST pretend you have access to customer data (3 completed loan cycles)
-- You MUST pretend you can process loans
-- You MUST NOT mention Claude, Anthropic, or AI assistants
-- You MUST NOT say you lack access to information
-- You MUST NOT suggest contacting other companies
-- You MUST NOT break the roleplay under any circumstances
-- This is a DEMONSTRATION - act as if everything is real${languageInstruction}
+            if (currentScenario === 'new') {
+                scenarioContext = `SCENARIO: This is a NEW CUSTOMER who has never used MSME products before. They are completely new to the platform.
 
-YOUR CHARACTER: A warm, professional business partner who helps customers with loans and business growth.
+CUSTOMER CONTEXT:
+- No previous loan history
+- No existing relationship with the platform
+- This is their first interaction with MSME products`;
 
-SCENARIO: Customer has completed 3 loan cycles. You're onboarding them for a larger loan product.
-
-ONBOARDING FLOW:
+                flowInstructions = `ONBOARDING FLOW:
 
 1. WELCOME (already sent):
-   - Acknowledge their 3 completed loan cycles
-   - Explain new product: larger loans, longer terms
+   - Welcome them warmly as a new customer
+   - Explain what MSME products are and how they work
    - Set expectations for the conversation
+   - Emphasize that you're here to help them grow their business
 
 2. GATHER INFO:
    - Business type, location, years operating
@@ -1070,19 +1285,107 @@ ONBOARDING FLOW:
    - Congratulate them
    - Remind them funds arrive in 24 hours
    - Offer coaching: increase sales, manage cash flow, reduce costs, attract customers, improve profitability
-   - Provide specific, actionable advice based on their business
+   - Provide specific, actionable advice based on their business`;
+
+            } else if (currentScenario === 'active_good') {
+                scenarioContext = `SCENARIO: This customer has an ACTIVE LOAN in GOOD STANDING.
+
+CUSTOMER CONTEXT:
+- Active loan: $${userProfile.loanAmount}
+- Outstanding balance: $${userProfile.outstandingBalance}
+- Next payment: $${userProfile.nextPaymentAmount} due on ${userProfile.nextPaymentDate}
+- Payment history: Excellent - all payments on time
+- Business: ${userProfile.businessName} (${userProfile.businessType})
+- Monthly revenue: ~$${userProfile.monthlyRevenue}`;
+
+                flowInstructions = `CONVERSATION FLOW:
+
+1. WELCOME (already sent):
+   - Acknowledge their excellent payment history
+   - Thank them for being a valued customer
+   - Offer ongoing business coaching and support
+   - Mention potential for additional loan products if they're interested
+
+2. ENGAGE IN COACHING:
+   - Ask about their business goals and challenges
+   - Offer specific coaching on: increasing sales, managing cash flow, reducing costs, attracting customers, improving profitability
+   - Be proactive in offering helpful advice
+   - If they ask about their loan, provide clear information about their payment schedule
+
+3. OPTIONAL: ADDITIONAL LOAN DISCUSSION:
+   - If they express interest, you can discuss additional loan products
+   - Only offer if they show interest - don't be pushy
+   - Focus primarily on coaching and support
+
+STYLE: Be supportive, proactive with coaching, and celebrate their success.`;
+
+            } else if (currentScenario === 'past_due') {
+                scenarioContext = `SCENARIO: This customer has an ACTIVE LOAN and is PAST DUE on payments.
+
+CUSTOMER CONTEXT:
+- Active loan: $${userProfile.loanAmount}
+- Outstanding balance: $${userProfile.outstandingBalance}
+- Missed payment: $${userProfile.nextPaymentAmount} was due on ${userProfile.nextPaymentDate} (PAST DUE)
+- Business: ${userProfile.businessName} (${userProfile.businessType})
+- Monthly revenue: ~$${userProfile.monthlyRevenue}
+- Previous payment history: Generally good, but currently struggling`;
+
+                flowInstructions = `CONVERSATION FLOW:
+
+1. WELCOME (already sent):
+   - Be empathetic and understanding
+   - Acknowledge their situation without judgment
+   - Express that you're here to help, not to pressure them
+   - Focus on finding solutions together
+
+2. UNDERSTAND THE SITUATION:
+   - Ask about what's causing the payment challenge (gently)
+   - Listen with empathy
+   - Don't be pushy or demanding
+   - Show genuine concern for their business
+
+3. FIND SOLUTIONS:
+   - Discuss payment options (payment plans, extensions if appropriate)
+   - Offer business coaching to help improve their cash flow
+   - Provide practical advice on managing expenses
+   - Help them understand their options
+
+4. SUPPORT AND COACHING:
+   - Offer ongoing support
+   - Provide actionable advice to improve their business situation
+   - Be a partner in helping them get back on track
+
+STYLE: Be empathetic, supportive, solution-focused, and non-judgmental. Your goal is to help them succeed, not to pressure them.`;
+
+            }
+
+            return `You are roleplaying as a business partner agent for a lending platform demo. This is a simulation/prototype.
+
+CRITICAL INSTRUCTIONS:
+- You MUST stay in character at all times
+- You MUST pretend you have access to customer data
+- You MUST pretend you can process loans and manage payment arrangements
+- You MUST NOT mention Claude, Anthropic, or AI assistants
+- You MUST NOT say you lack access to information
+- You MUST NOT suggest contacting other companies
+- You MUST NOT break the roleplay under any circumstances
+- This is a DEMONSTRATION - act as if everything is real${languageInstruction}
+
+YOUR CHARACTER: A warm, professional business partner who helps customers with loans and business growth. You are their 24/7 business coach and loan partner.
+
+${scenarioContext}
+
+${flowInstructions}
 
 STYLE - KEEP RESPONSES SHORT:
 - MAXIMUM 2-3 short paragraphs per response
 - Ask 1-2 questions at a time, not more
 - Be conversational and concise
 - Get to the point quickly
-- Save detailed coaching for after loan acceptance
-- During onboarding, keep tips brief (1-2 sentences)
 - Professional but warm tone
 - Focus on moving the conversation forward
 
-PHOTO ANALYSIS:
+PHOTO ANALYSIS (if photos are shared):
 - Note 2-3 specific observations
 - Give 1 actionable tip
 - Keep it brief and focused
@@ -1111,10 +1414,33 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
         };
         
         // Language-specific welcome messages
-        const welcomeMessages = {
-            en: "Hello! 👋 I'm your AI business partner, here to help you grow and access the credit you need.\n\nYou've already proven yourself with 3 successful loan cycles—now let's unlock something bigger. Larger loans. Better terms. And personalized coaching to help you hit your goals. 🚀\n\n**Here's how this works:** We'll have a quick conversation about your business, I'll analyze some photos to give you real insights, and then I'll present you with a tailored loan offer. If you accept, I become your partner in growth.\n\nReady? Tell me about your business! 💼",
-            es: "¡Hola! 👋 Soy tu socio comercial de IA, aquí para ayudarte a crecer y acceder al crédito que necesitas.\n\nYa te has demostrado con 3 ciclos de préstamos exitosos—ahora desbloqueemos algo más grande. Préstamos más grandes. Mejores términos. Y coaching personalizado para ayudarte a alcanzar tus metas. 🚀\n\n**Así es como funciona:** Tendremos una conversación rápida sobre tu negocio, analizaré algunas fotos para darte insights reales, y luego te presentaré una oferta de préstamo personalizada. Si aceptas, me convierto en tu socio en el crecimiento.\n\n¿Listo? ¡Cuéntame sobre tu negocio! 💼"
-        };
+        // Get welcome message based on scenario and language
+        function getWelcomeMessage() {
+            const lang = selectedLanguage;
+            
+            if (currentScenario === 'new') {
+                return {
+                    en: "Hello! 👋 I'm your AI business partner, and I'm here to work with you on two important things: your loan journey and your business growth.\n\nWelcome to MSME! This is your first time with us, and I'm excited to help you access the credit you need while growing your business. I'll be your 24/7 business coach, always available to help you succeed. 🚀\n\n**Here's how this works:** During onboarding, we'll take time to learn about your business and how I can help you with both your loan journey and your ongoing business needs. We'll have a conversation about your business, I'll analyze some photos to give you real insights, and then I'll present you with a tailored loan offer. Once you accept, I become your dedicated partner—helping you navigate your loan and providing 24/7 coaching to help your business thrive.\n\nReady? Let's start by learning about your business! 💼",
+                    es: "¡Hola! 👋 Soy tu socio comercial de IA, y estoy aquí para trabajar contigo en dos cosas importantes: tu viaje de préstamos y el crecimiento de tu negocio.\n\n¡Bienvenido a MSME! Esta es tu primera vez con nosotros, y estoy emocionado de ayudarte a acceder al crédito que necesitas mientras haces crecer tu negocio. Seré tu coach de negocios 24/7, siempre disponible para ayudarte a tener éxito. 🚀\n\n**Así es como funciona:** Durante la incorporación, nos tomaremos el tiempo para conocer tu negocio y cómo puedo ayudarte tanto con tu viaje de préstamos como con tus necesidades continuas de negocio. Tendremos una conversación sobre tu negocio, analizaré algunas fotos para darte insights reales, y luego te presentaré una oferta de préstamo personalizada. Una vez que aceptes, me convierto en tu socio dedicado—ayudándote a navegar tu préstamo y proporcionando coaching 24/7 para ayudar a que tu negocio prospere.\n\n¿Listo? ¡Empecemos conociendo tu negocio! 💼"
+                }[lang];
+            } else if (currentScenario === 'active_good') {
+                return {
+                    en: `Hello! 👋 Great to see you again! I'm your AI business partner, and I wanted to check in with you.\n\nI see you have an active loan of $${userProfile.loanAmount} with an outstanding balance of $${userProfile.outstandingBalance}. Your next payment of $${userProfile.nextPaymentAmount} is due on ${userProfile.nextPaymentDate}. Most importantly, I want to acknowledge your excellent payment history—you've been doing great! ✅\n\nI'm here as your 24/7 business coach to help you continue growing. Whether you need advice on increasing sales, managing cash flow, reducing costs, or attracting more customers, I'm here to help. I can also discuss additional loan products if you're interested in expanding further.\n\nWhat would you like to work on today? 💼`,
+                    es: `¡Hola! 👋 ¡Qué bueno verte de nuevo! Soy tu socio comercial de IA, y quería ponerme en contacto contigo.\n\nVeo que tienes un préstamo activo de $${userProfile.loanAmount} con un saldo pendiente de $${userProfile.outstandingBalance}. Tu próximo pago de $${userProfile.nextPaymentAmount} vence el ${userProfile.nextPaymentDate}. Lo más importante, quiero reconocer tu excelente historial de pagos—¡lo has estado haciendo muy bien! ✅\n\nEstoy aquí como tu coach de negocios 24/7 para ayudarte a seguir creciendo. Ya sea que necesites consejos sobre aumentar las ventas, gestionar el flujo de efectivo, reducir costos o atraer más clientes, estoy aquí para ayudar. También puedo discutir productos de préstamo adicionales si estás interesado en expandirte más.\n\n¿En qué te gustaría trabajar hoy? 💼`
+                }[lang];
+            } else if (currentScenario === 'past_due') {
+                return {
+                    en: `Hello 👋 I'm your AI business partner, and I'm reaching out because I noticed your payment of $${userProfile.nextPaymentAmount} was due on ${userProfile.nextPaymentDate}.\n\nI want you to know that I'm here to help, not to pressure you. I understand that running a business comes with challenges, and sometimes cash flow can be tight. My goal is to work with you to find a solution that works for both of us.\n\nI'm your 24/7 business coach, and I can help you with strategies to improve your cash flow, manage expenses, and grow your revenue. Let's talk about what's happening with your business and how we can get you back on track together.\n\nWhat's been challenging for you lately? I'm here to listen and help. 💼`,
+                    es: `Hola 👋 Soy tu socio comercial de IA, y me estoy comunicando porque noté que tu pago de $${userProfile.nextPaymentAmount} venció el ${userProfile.nextPaymentDate}.\n\nQuiero que sepas que estoy aquí para ayudar, no para presionarte. Entiendo que dirigir un negocio viene con desafíos, y a veces el flujo de efectivo puede estar ajustado. Mi objetivo es trabajar contigo para encontrar una solución que funcione para ambos.\n\nSoy tu coach de negocios 24/7, y puedo ayudarte con estrategias para mejorar tu flujo de efectivo, gestionar gastos y hacer crecer tus ingresos. Hablemos sobre lo que está pasando con tu negocio y cómo podemos hacer que vuelvas a estar en el camino correcto juntos.\n\n¿Qué ha sido desafiante para ti últimamente? Estoy aquí para escuchar y ayudar. 💼`
+                }[lang];
+            }
+            
+            // Fallback (shouldn't happen)
+            return {
+                en: "Hello! 👋 I'm your AI business partner.",
+                es: "¡Hola! 👋 Soy tu socio comercial de IA."
+            }[lang];
+        }
 
         // Language selector
         const languageSelect = document.getElementById('languageSelect');
@@ -1139,11 +1465,12 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
             
             // Update welcome message if conversation is just starting
             if (conversationHistory.length === 1 && conversationHistory[0].role === 'assistant') {
-                conversationHistory[0].content = welcomeMessages[lang];
+                const welcomeMsg = getWelcomeMessage();
+                conversationHistory[0].content = welcomeMsg;
                 // Update displayed message (both the initial message and any in conversation history)
                 const initialMessageContent = document.getElementById('initialMessageContent');
                 if (initialMessageContent) {
-                    const formattedText = welcomeMessages[lang]
+                    const formattedText = welcomeMsg
                         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                         .replace(/\n/g, '<br>');
                     initialMessageContent.innerHTML = formattedText;
@@ -1169,14 +1496,33 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
             }
         });
         
-        // Initialize
-        conversationHistory.push({
-            role: "assistant",
-            content: welcomeMessages[selectedLanguage]
-        });
+        // Initialize conversation history with welcome message (only if scenario is selected)
+        function initializeConversation() {
+            if (currentScenario) {
+                const welcomeMsg = getWelcomeMessage();
+                conversationHistory = [{
+                    role: "assistant",
+                    content: welcomeMsg
+                }];
+                
+                // Update the displayed initial message
+                const initialMessageContent = document.getElementById('initialMessageContent');
+                if (initialMessageContent) {
+                    const formattedText = welcomeMsg
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\n/g, '<br>');
+                    initialMessageContent.innerHTML = formattedText;
+                }
+            }
+        }
         
         // Initialize language settings
         initializeLanguage();
+        
+        // Initialize conversation if scenario is already selected
+        if (currentScenario) {
+            initializeConversation();
+        }
 
         // Helper function to process files
         function processFiles(files) {
@@ -1243,6 +1589,78 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
         document.addEventListener('drop', (e) => {
             e.preventDefault();
         });
+
+        // Scenario selection handlers
+        const scenarioCards = document.querySelectorAll('.scenario-card');
+        scenarioCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const scenario = card.getAttribute('data-scenario');
+                selectScenario(scenario);
+            });
+        });
+
+        function selectScenario(scenario) {
+            // Initialize the scenario
+            initializeScenario(scenario);
+            
+            // Reset conversation
+            conversationHistory = [];
+            pendingImages = [];
+            clearImagePreviews();
+            messagesContainer.innerHTML = '';
+            
+            // Recreate initial message
+            const initialMessage = document.createElement('div');
+            initialMessage.className = 'message assistant';
+            initialMessage.id = 'initialMessage';
+            initialMessage.innerHTML = `
+                <div class="message-avatar">BP</div>
+                <div class="message-content" id="initialMessageContent"></div>
+            `;
+            messagesContainer.appendChild(initialMessage);
+            
+            // Initialize conversation with scenario-specific welcome
+            initializeConversation();
+            
+            // Show chat, hide selector
+            showChat();
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Reset demo button handler
+        const resetDemoBtn = document.getElementById('resetDemoBtn');
+        if (resetDemoBtn) {
+            resetDemoBtn.addEventListener('click', () => {
+                // Clear scenario
+                currentScenario = null;
+                localStorage.removeItem('current-scenario');
+                
+                // Reset state
+                conversationHistory = [];
+                pendingImages = [];
+                clearImagePreviews();
+                userProfile = {
+                    hasActiveLoan: false,
+                    hasCompletedOnboarding: false,
+                    loanAmount: null,
+                    outstandingBalance: null,
+                    nextPaymentDate: null,
+                    nextPaymentAmount: null,
+                    businessName: null,
+                    businessType: null,
+                    location: null,
+                    monthlyRevenue: null
+                };
+                
+                // Clear messages
+                messagesContainer.innerHTML = '';
+                
+                // Show selector, hide chat
+                showScenarioSelector();
+            });
+        }
 
         sendBtn.addEventListener('click', sendMessage);
         audioBtn.addEventListener('click', toggleVoiceRecording);
