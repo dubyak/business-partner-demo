@@ -1961,7 +1961,7 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
 
         // Configuration - update this URL after deploying your backend
         const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:3000/api/chat'  // Local development
+            ? 'http://localhost:8000/api/chat'  // Local development (Python backend)
             : 'https://business-partner-demo-teal.vercel.app/api/chat';  // Production
 
         async function getAIResponse() {
