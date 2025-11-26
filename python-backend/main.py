@@ -101,17 +101,6 @@ async def chat(request: ChatRequest):
     session_id = request.session_id or f"session-{int(time.time())}"
     user_id = request.user_id or "demo-user"
 
-    # Get or create conversation in database
-    conversation = await get_or_create_conversation(user_id, session_id)
-    
-    # Extract conversation ID safely
-    conversation_id = conversation.get('id')
-    if not conversation_id:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to create or retrieve conversation ID from database"
-        )
-
     # Create Langfuse trace for this conversation turn
     trace = langfuse.trace(
         name="business-partner-conversation",
@@ -122,6 +111,16 @@ async def chat(request: ChatRequest):
     )
 
     try:
+        # Get or create conversation in database
+        conversation = await get_or_create_conversation(user_id, session_id)
+        
+        # Extract conversation ID safely
+        conversation_id = conversation.get('id')
+        if not conversation_id:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create or retrieve conversation ID from database"
+            )
         # Convert request messages to LangChain format
         langchain_messages = []
         for msg in request.messages:
