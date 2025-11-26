@@ -348,6 +348,182 @@
             font-weight: 700;
         }
 
+        /* LangGraph Flow Diagram */
+        .langgraph-container {
+            background: #F8F9FA;
+            border-radius: 20px;
+            padding: 50px;
+            margin: 40px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .langgraph-diagram {
+            position: relative;
+            min-height: 600px;
+        }
+
+        .node {
+            position: absolute;
+            background: white;
+            border: 3px solid;
+            border-radius: 16px;
+            padding: 20px 30px;
+            min-width: 180px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .node.start {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .node.conversation {
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .node.vision {
+            top: 350px;
+            left: 10%;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-color: #f5576c;
+        }
+
+        .node.underwriting {
+            top: 350px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border-color: #00f2fe;
+        }
+
+        .node.coaching {
+            top: 350px;
+            right: 10%;
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            border-color: #38f9d7;
+        }
+
+        .node.end {
+            top: 550px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #E9ECEF;
+            color: #636E72;
+            border-color: #636E72;
+        }
+
+        .arrow {
+            position: absolute;
+            stroke: #667eea;
+            stroke-width: 3;
+            fill: none;
+            marker-end: url(#arrowhead);
+            animation: drawArrow 1s ease-out;
+            z-index: 5;
+        }
+
+        .arrow.loop {
+            stroke: #f5576c;
+            stroke-width: 4;
+            stroke-dasharray: 5,5;
+            animation: drawArrowLoop 2s ease-in-out infinite;
+        }
+
+        .arrow-label {
+            position: absolute;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            background: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 15;
+        }
+
+        .arrow-label.loop {
+            color: #f5576c;
+        }
+
+        @keyframes drawArrow {
+            from { stroke-dashoffset: 1000; }
+            to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes drawArrowLoop {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .routing-box {
+            position: absolute;
+            top: 280px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(102, 126, 234, 0.1);
+            border: 2px dashed #667eea;
+            border-radius: 12px;
+            padding: 15px 25px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+            z-index: 8;
+        }
+
+        .legend {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #636E72;
+        }
+
+        .legend-line {
+            width: 30px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .legend-line.solid {
+            background: #667eea;
+        }
+
+        .legend-line.dashed {
+            background: #f5576c;
+            border-top: 2px dashed #f5576c;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 30px 20px;
@@ -371,6 +547,34 @@
                 bottom: -30px;
                 top: auto;
                 transform: translateX(50%);
+            }
+
+            .langgraph-container {
+                padding: 20px;
+            }
+
+            .langgraph-diagram {
+                min-height: 800px;
+            }
+
+            .node {
+                position: relative;
+                margin: 20px auto;
+                min-width: 200px;
+            }
+
+            .node.start,
+            .node.conversation,
+            .node.end {
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .node.vision,
+            .node.underwriting,
+            .node.coaching {
+                left: 50%;
+                transform: translateX(-50%);
             }
         }
     </style>
@@ -441,6 +645,99 @@
                         All the agents work together, and you get a helpful response that might include business insights, 
                         a loan offer, or coaching advice. The conversation continues naturally!
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LangGraph Flow Diagram -->
+        <div class="section">
+            <div class="section-title">🔄 LangGraph Agent Flow (With Loops!)</div>
+            <div class="langgraph-container">
+                <p style="text-align: center; margin-bottom: 30px; color: #636E72; font-size: 16px;">
+                    This diagram shows how agents loop back to the Conversation Agent, creating a continuous workflow. 
+                    The <span style="color: #f5576c; font-weight: 600;">dashed red arrows</span> show the loop back to Conversation.
+                </p>
+                
+                <div class="langgraph-diagram">
+                    <!-- SVG for arrows - using viewBox for responsive scaling -->
+                    <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#667eea" />
+                            </marker>
+                            <marker id="arrowhead-loop" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#f5576c" />
+                            </marker>
+                        </defs>
+                        
+                        <!-- Start to Conversation (vertical down) -->
+                        <line class="arrow" x1="400" y1="50" x2="400" y2="150" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <!-- Conversation to Vision (diagonal left) -->
+                        <line class="arrow" x1="320" y1="220" x2="160" y2="350" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <!-- Conversation to Underwriting (vertical down) -->
+                        <line class="arrow" x1="400" y1="220" x2="400" y2="350" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <!-- Conversation to Coaching (diagonal right) -->
+                        <line class="arrow" x1="480" y1="220" x2="640" y2="350" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <!-- Loop back: Vision → Conversation (curved path) -->
+                        <path class="arrow loop" d="M 160 380 Q 80 450 400 480 L 400 220" stroke="#f5576c" stroke-width="4" fill="none" stroke-dasharray="5,5" marker-end="url(#arrowhead-loop)" />
+                        
+                        <!-- Loop back: Underwriting → Conversation (straight up) -->
+                        <path class="arrow loop" d="M 400 380 L 400 220" stroke="#f5576c" stroke-width="4" fill="none" stroke-dasharray="5,5" marker-end="url(#arrowhead-loop)" />
+                        
+                        <!-- Loop back: Coaching → Conversation (curved path) -->
+                        <path class="arrow loop" d="M 640 380 Q 720 450 400 480 L 400 220" stroke="#f5576c" stroke-width="4" fill="none" stroke-dasharray="5,5" marker-end="url(#arrowhead-loop)" />
+                        
+                        <!-- Conversation to End (vertical down) -->
+                        <line class="arrow" x1="400" y1="220" x2="400" y2="550" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                    </svg>
+                    
+                    <!-- Nodes -->
+                    <div class="node start">START</div>
+                    <div class="node conversation">💬 Conversation Agent<br><small style="font-size: 12px; opacity: 0.9;">Main Coordinator</small></div>
+                    <div class="routing-box">Conditional Routing<br><small style="font-size: 11px; opacity: 0.8;">Based on State</small></div>
+                    <div class="node vision">👁️ Vision Agent<br><small style="font-size: 12px; opacity: 0.9;">Photo Analysis</small></div>
+                    <div class="node underwriting">💰 Underwriting Agent<br><small style="font-size: 12px; opacity: 0.9;">Loan Decisions</small></div>
+                    <div class="node coaching">📈 Coaching Agent<br><small style="font-size: 12px; opacity: 0.9;">Business Advice</small></div>
+                    <div class="node end">END<br><small style="font-size: 12px; opacity: 0.9;">Response Sent</small></div>
+                    
+                    <!-- Arrow Labels -->
+                    <div class="arrow-label" style="top: 95px; left: 55%;">Initial</div>
+                    <div class="arrow-label" style="top: 280px; left: 15%;">If photos</div>
+                    <div class="arrow-label" style="top: 280px; left: 52%;">If ready</div>
+                    <div class="arrow-label" style="top: 280px; right: 15%;">If accepted</div>
+                    <div class="arrow-label loop" style="top: 420px; left: 15%;">Loop back</div>
+                    <div class="arrow-label loop" style="top: 420px; left: 52%;">Loop back</div>
+                    <div class="arrow-label loop" style="top: 420px; right: 15%;">Loop back</div>
+                    <div class="arrow-label" style="top: 380px; left: 52%;">If done</div>
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-line solid"></div>
+                        <span>Forward flow</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line dashed"></div>
+                        <span>Loop back to Conversation</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 40px; padding: 24px; background: white; border-radius: 12px; border-left: 4px solid #667eea;">
+                    <h4 style="font-size: 18px; font-weight: 700; color: #2D3436; margin-bottom: 12px;">🔄 How the Loop Works</h4>
+                    <p style="color: #636E72; line-height: 1.8; font-size: 15px;">
+                        <strong>1. Start:</strong> Every conversation begins with the Conversation Agent.<br>
+                        <strong>2. Route:</strong> Based on what you've shared, it routes to a specialist (Vision, Underwriting, or Coaching).<br>
+                        <strong>3. Process:</strong> The specialist agent does its work (analyzes photos, evaluates loan, gives advice).<br>
+                        <strong>4. Loop Back:</strong> The specialist <span class="highlight">always returns to Conversation Agent</span> to integrate results.<br>
+                        <strong>5. Continue or End:</strong> Conversation Agent can route to another specialist, or end if everything is done.<br>
+                        <br>
+                        <strong>💡 Key Insight:</strong> This loop allows multiple specialists to work together in one conversation. 
+                        For example, you might upload photos (Vision) → get a loan offer (Underwriting) → receive coaching (Coaching) → all in one seamless flow!
+                    </p>
                 </div>
             </div>
         </div>
