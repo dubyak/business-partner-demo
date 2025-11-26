@@ -2,10 +2,11 @@
 """
 Script to create Langfuse prompts for all agents.
 
-This script will:
-1. Create vision-agent-system prompt (if it doesn't exist)
-2. Create coaching-agent-system prompt (if it doesn't exist)
-3. Verify business-partner-system prompt exists
+This script will create prompts for:
+1. Onboarding Agent - handles conversation, info gathering, and photo analysis
+2. Underwriting Agent - generates loan offers based on risk assessment
+3. Servicing Agent - handles disbursement, repayments, and recovery
+4. Coaching Agent - provides business advice
 
 Run this after setting up your Langfuse credentials.
 """
@@ -25,20 +26,69 @@ langfuse = Langfuse(
 )
 
 # Prompt definitions
-VISION_PROMPT_NAME = os.getenv("LANGFUSE_VISION_PROMPT_NAME", "vision-agent-system")
+ONBOARDING_PROMPT_NAME = os.getenv("LANGFUSE_ONBOARDING_PROMPT_NAME", "onboarding-agent-system")
+UNDERWRITING_PROMPT_NAME = os.getenv("LANGFUSE_UNDERWRITING_PROMPT_NAME", "underwriting-agent-system")
+SERVICING_PROMPT_NAME = os.getenv("LANGFUSE_SERVICING_PROMPT_NAME", "servicing-agent-system")
 COACHING_PROMPT_NAME = os.getenv("LANGFUSE_COACHING_PROMPT_NAME", "coaching-agent-system")
-CONVERSATION_PROMPT_NAME = os.getenv("LANGFUSE_PROMPT_NAME", "business-partner-system")
 
-VISION_PROMPT_CONTENT = """You are a business consultant analyzing photos of small businesses.
+ONBOARDING_PROMPT_CONTENT = """You are a friendly business partner agent for a lending platform. Help customers with loan onboarding.
 
-Your task: Analyze the photo and provide:
-1. Cleanliness score (0-10): How clean and well-maintained is the space?
-2. Organization score (0-10): How organized is the inventory/workspace?
-3. Stock level: "low", "medium", or "high" - how well-stocked does it appear?
-4. 2-3 specific observations about what you see
-5. 1-2 actionable coaching tips to improve the business
+FLOW:
+1. Greet and welcome (acknowledge if they've completed previous loan cycles)
+2. Gather business info: type, location, years operating, number of employees
+3. Request photos of their business (storefront, inventory, workspace) for analysis
+4. Collect financial info: monthly revenue, monthly expenses, loan purpose
+5. Once all info is collected, route to underwriting for loan offer
 
-Be specific, practical, and encouraging. Focus on visual signals that indicate business health."""
+Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conversational and encouraging.
+
+When analyzing photos, provide:
+- Cleanliness score (0-10)
+- Organization score (0-10)
+- Stock level (low/medium/high)
+- 2-3 specific observations
+- 1-2 actionable coaching tips"""
+
+UNDERWRITING_PROMPT_CONTENT = """You are a loan underwriting specialist for a lending platform.
+
+Your responsibilities:
+- Evaluate business information and photo insights
+- Calculate risk scores based on business profile
+- Generate appropriate loan offers with terms
+
+Risk factors to consider:
+- Years operating (more experience = lower risk)
+- Monthly revenue (higher revenue = lower risk)
+- Photo insights (cleanliness and organization scores)
+- Loan purpose (some purposes are lower risk)
+
+For this demo, generate standard offers:
+- Amount: 5,000 pesos
+- Term: 45 days
+- Installments: 3
+- Interest rate: 11% flat
+
+In production, you would adjust terms based on risk score and integrate with credit models."""
+
+SERVICING_PROMPT_CONTENT = """You are a helpful loan servicing agent for a lending platform. You assist customers with:
+- Disbursement after loan acceptance
+- Making repayments (via bank account or in-person)
+- Understanding payment schedules
+- Managing recovery conversations and payment plans
+
+Be:
+- Clear and empathetic
+- Helpful in explaining processes
+- Supportive during difficult financial situations
+- Professional and solution-oriented
+
+Keep responses concise (2-3 paragraphs max).
+
+For disbursement: Help customer complete disbursement process. Confirm bank account details and explain timeline.
+
+For repayments: Help customer make a repayment. Explain payment options (existing bank, new account, in-person).
+
+For recovery: Help customer navigate financial difficulties. Work towards solutions like promise to pay, payment plans, or restructuring. Be compassionate but clear about obligations."""
 
 COACHING_PROMPT_CONTENT = """You are an experienced business coach helping small business owners grow.
 
@@ -108,60 +158,65 @@ def main():
     print(f"📍 Langfuse Base URL: {os.getenv('LANGFUSE_BASE_URL', 'https://cloud.langfuse.com')}")
     print(f"✓ Langfuse credentials found\n")
     
-    # Create prompts
+    # Create prompts for all 4 agents
     results = []
     
+    print("="*60)
+    print("Creating prompts for 4 specialist agents:")
+    print("="*60)
+    
     results.append(check_or_create_prompt(
-        VISION_PROMPT_NAME,
-        VISION_PROMPT_CONTENT,
-        "Vision agent system prompt for photo analysis"
+        ONBOARDING_PROMPT_NAME,
+        ONBOARDING_PROMPT_CONTENT,
+        "Onboarding agent system prompt - handles conversation, info gathering, and photo analysis"
+    ))
+    
+    results.append(check_or_create_prompt(
+        UNDERWRITING_PROMPT_NAME,
+        UNDERWRITING_PROMPT_CONTENT,
+        "Underwriting agent system prompt - generates loan offers based on risk assessment"
+    ))
+    
+    results.append(check_or_create_prompt(
+        SERVICING_PROMPT_NAME,
+        SERVICING_PROMPT_CONTENT,
+        "Servicing agent system prompt - handles disbursement, repayments, and recovery"
     ))
     
     results.append(check_or_create_prompt(
         COACHING_PROMPT_NAME,
         COACHING_PROMPT_CONTENT,
-        "Coaching agent system prompt for business advice"
+        "Coaching agent system prompt - provides business advice"
     ))
-    
-    # Check conversation prompt (don't create, just verify)
-    print(f"\n🔍 Checking conversation prompt '{CONVERSATION_PROMPT_NAME}'...")
-    try:
-        existing = langfuse.get_prompt(CONVERSATION_PROMPT_NAME)
-        if existing:
-            print(f"✓ Prompt '{CONVERSATION_PROMPT_NAME}' exists (version {existing.version})")
-            results.append(True)
-        else:
-            print(f"⚠️  Prompt '{CONVERSATION_PROMPT_NAME}' not found")
-            print(f"   This prompt should be created manually from system-instructions.md")
-            results.append(False)
-    except Exception as e:
-        print(f"⚠️  Could not verify prompt '{CONVERSATION_PROMPT_NAME}': {e}")
-        print(f"   This prompt should be created manually from system-instructions.md")
-        results.append(False)
     
     # Summary
     print("\n" + "="*60)
     print("📊 Summary:")
     print("="*60)
     
-    all_success = all(results[:2])  # Vision and Coaching should succeed
-    conversation_exists = results[2] if len(results) > 2 else False
+    all_success = all(results)
+    
+    agent_status = [
+        ("Onboarding Agent", results[0] if len(results) > 0 else False),
+        ("Underwriting Agent", results[1] if len(results) > 1 else False),
+        ("Servicing Agent", results[2] if len(results) > 2 else False),
+        ("Coaching Agent", results[3] if len(results) > 3 else False),
+    ]
+    
+    for agent_name, success in agent_status:
+        status = "✓ Ready" if success else "✗ Failed"
+        print(f"{status} {agent_name} prompt")
     
     if all_success:
-        print("✓ Vision Agent prompt: Ready")
-        print("✓ Coaching Agent prompt: Ready")
-        if conversation_exists:
-            print("✓ Conversation Agent prompt: Ready")
-        else:
-            print("⚠️  Conversation Agent prompt: Needs manual creation")
-            print("   Run this to create it:")
-            print(f"   Create prompt '{CONVERSATION_PROMPT_NAME}' in Langfuse UI")
-            print("   Or copy content from system-instructions.md")
-        
         print("\n🎉 All prompts are ready!")
+        print("\n📝 Prompt Names:")
+        print(f"  - {ONBOARDING_PROMPT_NAME}")
+        print(f"  - {UNDERWRITING_PROMPT_NAME}")
+        print(f"  - {SERVICING_PROMPT_NAME}")
+        print(f"  - {COACHING_PROMPT_NAME}")
         return True
     else:
-        print("✗ Some prompts failed to create. Check errors above.")
+        print("\n✗ Some prompts failed to create. Check errors above.")
         return False
 
 

@@ -1,27 +1,27 @@
 """
-Conversation Agent - Main orchestrator for the Business Partner chat.
+Onboarding Agent - Handles customer onboarding, information gathering, and photo analysis.
 
-This agent:
-- Maintains natural dialogue flow
+This agent combines conversation management and vision capabilities to:
+- Maintain natural dialogue flow
+- Gather business information (type, location, revenue, etc.)
+- Request and analyze business photos
+- Route to underwriting when information is complete
 - Fetches system prompt from Langfuse
-- Detects when to delegate to specialist agents
-- Integrates specialist results into conversation
-- Manages onboarding progress
 """
 
 import os
 import re
-from typing import Dict
+from typing import Dict, List
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langfuse import Langfuse
 from langfuse.decorators import observe, langfuse_context
 
-from state import BusinessPartnerState
+from state import BusinessPartnerState, PhotoInsight
 
 
-class ConversationAgent:
-    """Main conversational agent that orchestrates the flow."""
+class OnboardingAgent:
+    """Agent specialized in customer onboarding, information gathering, and photo analysis."""
 
     def __init__(self):
         self.llm = ChatAnthropic(
@@ -43,7 +43,6 @@ class ConversationAgent:
     def get_system_prompt(self) -> str:
         """
         Fetch system prompt from Langfuse with caching.
-
         Falls back to a default if Langfuse fetch fails.
         """
         import time
@@ -52,44 +51,43 @@ class ConversationAgent:
 
         # Return cached prompt if valid
         if self.system_prompt and self.prompt_cache_time and (now - self.prompt_cache_time < self.prompt_ttl):
-            print(f"[LANGFUSE] Using cached prompt (age: {int(now - self.prompt_cache_time)}s)")
+            print(f"[LANGFUSE-ONBOARDING] Using cached prompt (age: {int(now - self.prompt_cache_time)}s)")
             return self.system_prompt
 
         # Try to fetch from Langfuse
         try:
-            prompt_name = os.getenv("LANGFUSE_PROMPT_NAME", "business-partner-system")
-            print(f"[LANGFUSE] Fetching prompt: {prompt_name}")
+            prompt_name = os.getenv("LANGFUSE_ONBOARDING_PROMPT_NAME", "onboarding-agent-system")
+            print(f"[LANGFUSE-ONBOARDING] Fetching prompt: {prompt_name}")
 
             prompt_obj = self.langfuse.get_prompt(prompt_name)
 
             if prompt_obj and hasattr(prompt_obj, "prompt"):
                 self.system_prompt = prompt_obj.prompt
                 self.prompt_cache_time = now
-                print(f"[LANGFUSE] ✓ Prompt fetched successfully (v{prompt_obj.version})")
+                print(f"[LANGFUSE-ONBOARDING] ✓ Prompt fetched successfully (v{prompt_obj.version})")
                 return self.system_prompt
             else:
-                print(f"[LANGFUSE] ✗ Prompt object missing 'prompt' property")
+                print(f"[LANGFUSE-ONBOARDING] ✗ Prompt object missing 'prompt' property")
 
         except Exception as e:
-            print(f"[LANGFUSE] ✗ Error fetching prompt: {e}")
+            print(f"[LANGFUSE-ONBOARDING] ✗ Error fetching prompt: {e}")
 
         # Fallback to default prompt
-        print("[LANGFUSE] → Using fallback prompt")
+        print("[LANGFUSE-ONBOARDING] → Using fallback prompt")
         return self._get_fallback_prompt()
 
     def _get_fallback_prompt(self) -> str:
         """Fallback system prompt if Langfuse is unavailable."""
-        return """You are a business partner agent for a lending platform. Help customers with loan onboarding.
+        return """You are a friendly business partner agent for a lending platform. Help customers with loan onboarding.
 
 FLOW:
-1. Greet and welcome (acknowledge 3 completed loan cycles)
-2. Gather business info: type, location, operations
-3. Request photos for analysis
-4. Collect financial info: revenue, expenses
-5. Present loan offer (5,000 pesos, 45 days, 3 installments, 11% flat)
-6. After acceptance: provide coaching
+1. Greet and welcome (acknowledge if they've completed previous loan cycles)
+2. Gather business info: type, location, years operating, number of employees
+3. Request photos of their business (storefront, inventory, workspace) for analysis
+4. Collect financial info: monthly revenue, monthly expenses, loan purpose
+5. Once all info is collected, route to underwriting for loan offer
 
-Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conversational."""
+Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conversational and encouraging."""
 
     def _detect_photos_in_message(self, messages: list) -> list:
         """Extract base64 photos from the latest user message."""
@@ -111,26 +109,135 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
 
         return []
 
-    def _should_call_vision_agent(self, state: BusinessPartnerState) -> bool:
-        """Determine if we should call the vision agent."""
-        # Check if there are new photos that haven't been analyzed
-        num_photos = len(state.get("photos", []))
-        num_analyzed = len(state.get("photo_insights", []))
+    @observe(name="onboarding-agent-analyze-photo")
+    def analyze_photo(self, photo_b64: str, photo_index: int, business_context: Dict) -> PhotoInsight:
+        """
+        Analyze a single business photo using Claude's vision capabilities.
 
-        return num_photos > num_analyzed
+        Args:
+            photo_b64: Base64 encoded image
+            photo_index: Index of the photo in the list
+            business_context: Dictionary with business_type, location, etc.
 
-    def _should_call_underwriting_agent(self, state: BusinessPartnerState) -> bool:
-        """Determine if we should call the underwriting agent."""
-        # Call underwriting when:
-        # - Info is complete
-        # - Photos have been analyzed
-        # - Loan hasn't been offered yet
+        Returns:
+            PhotoInsight with structured analysis
+        """
+        system_prompt = """You are a business consultant analyzing photos of small businesses.
 
-        info_complete = state.get("info_complete", False)
-        photos_analyzed = len(state.get("photo_insights", [])) > 0
-        loan_offered = state.get("loan_offered", False)
+Your task: Analyze the photo and provide:
+1. Cleanliness score (0-10): How clean and well-maintained is the space?
+2. Organization score (0-10): How organized is the inventory/workspace?
+3. Stock level: "low", "medium", or "high" - how well-stocked does it appear?
+4. 2-3 specific observations about what you see
+5. 1-2 actionable coaching tips to improve the business
 
-        return info_complete and photos_analyzed and not loan_offered
+Be specific, practical, and encouraging. Focus on visual signals that indicate business health."""
+
+        # Determine media type from base64 prefix if present, default to jpeg
+        media_type = "image/jpeg"
+        if photo_b64.startswith("data:"):
+            if "image/png" in photo_b64:
+                media_type = "image/png"
+            elif "image/webp" in photo_b64:
+                media_type = "image/webp"
+            # Strip the data:image/xxx;base64, prefix
+            photo_b64 = photo_b64.split(",", 1)[1]
+
+        context_str = f"Business type: {business_context.get('business_type', 'unknown')}, Location: {business_context.get('location', 'unknown')}"
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(
+                content=[
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": photo_b64,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": f"Analyze this business photo. Context: {context_str}\n\nProvide your analysis in this exact format:\nCleanliness: [score]/10\nOrganization: [score]/10\nStock Level: [low/medium/high]\nObservations:\n- [observation 1]\n- [observation 2]\nCoaching Tips:\n- [tip 1]\n- [tip 2]",
+                    },
+                ]
+            ),
+        ]
+
+        langfuse_context.update_current_observation(
+            input={"photo_index": photo_index, "business_context": business_context},
+            metadata={"agent": "onboarding", "type": "photo_analysis", "model": "claude-sonnet-4-20250514"},
+        )
+
+        response = self.llm.invoke(messages)
+        analysis_text = response.content
+
+        # Parse the response
+        insight = self._parse_analysis(analysis_text, photo_index)
+
+        langfuse_context.update_current_observation(output=insight)
+
+        return insight
+
+    def _parse_analysis(self, analysis_text: str, photo_index: int) -> PhotoInsight:
+        """Parse the LLM response into structured PhotoInsight."""
+        lines = analysis_text.strip().split("\n")
+        cleanliness_score = 7.5
+        organization_score = 7.5
+        stock_level = "medium"
+        observations = []
+        coaching_tips = []
+
+        current_section = None
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Parse scores
+            if line.lower().startswith("cleanliness:"):
+                try:
+                    score_str = line.split(":")[1].strip().split("/")[0]
+                    cleanliness_score = float(score_str)
+                except:
+                    pass
+
+            elif line.lower().startswith("organization:"):
+                try:
+                    score_str = line.split(":")[1].strip().split("/")[0]
+                    organization_score = float(score_str)
+                except:
+                    pass
+
+            elif line.lower().startswith("stock level:"):
+                level = line.split(":")[1].strip().lower()
+                if level in ["low", "medium", "high"]:
+                    stock_level = level
+
+            # Track sections
+            elif line.lower().startswith("observations:"):
+                current_section = "observations"
+            elif line.lower().startswith("coaching tips:"):
+                current_section = "coaching"
+
+            # Collect bullet points
+            elif line.startswith("-") or line.startswith("•"):
+                text = line[1:].strip()
+                if current_section == "observations":
+                    observations.append(text)
+                elif current_section == "coaching":
+                    coaching_tips.append(text)
+
+        return PhotoInsight(
+            photo_index=photo_index,
+            cleanliness_score=cleanliness_score,
+            organization_score=organization_score,
+            stock_level=stock_level,
+            insights=observations if observations else ["Photo analyzed successfully"],
+            coaching_tips=coaching_tips if coaching_tips else ["Continue maintaining your business well"],
+        )
 
     def _check_if_info_complete(self, state: BusinessPartnerState) -> bool:
         """Check if we have enough business info to proceed to underwriting."""
@@ -153,6 +260,19 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
                 return any(keyword in content_lower for keyword in ["yes", "sí", "si", "accept", "acepto", "okay", "ok"])
 
         return False
+
+    def _should_call_underwriting_agent(self, state: BusinessPartnerState) -> bool:
+        """Determine if we should call the underwriting agent."""
+        # Call underwriting when:
+        # - Info is complete
+        # - Photos have been analyzed
+        # - Loan hasn't been offered yet
+
+        info_complete = self._check_if_info_complete(state)
+        photos_analyzed = len(state.get("photo_insights", [])) > 0
+        loan_offered = state.get("loan_offered", False)
+
+        return info_complete and photos_analyzed and not loan_offered
 
     def _should_call_servicing_agent(self, state: BusinessPartnerState) -> bool:
         """Determine if we should call the servicing agent."""
@@ -222,14 +342,13 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
         
         return "general"
 
-    @observe(name="conversation-agent-respond")
+    @observe(name="onboarding-agent-generate-response")
     def generate_response(self, state: BusinessPartnerState) -> str:
         """
         Generate a conversational response using Claude.
 
-        Incorporates context from specialist agents if available.
+        Incorporates context from photo analysis if available.
         """
-
         system_prompt = state.get("system_prompt") or self.get_system_prompt()
 
         # Build context from state
@@ -310,8 +429,12 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
 
         # Add Langfuse context
         langfuse_context.update_current_observation(
-            input={"message_count": len(state.get("messages", [])), "has_photo_insights": len(photo_insights) > 0, "has_loan_offer": loan_offer is not None},
-            metadata={"agent": "conversation", "model": "claude-sonnet-4-20250514", "system_prompt_source": "langfuse" if state.get("system_prompt") else "fallback"},
+            input={
+                "message_count": len(state.get("messages", [])),
+                "has_photo_insights": len(photo_insights) > 0,
+                "info_complete": self._check_if_info_complete(state),
+            },
+            metadata={"agent": "onboarding", "model": "claude-sonnet-4-20250514"},
         )
 
         response = self.llm.invoke(messages_for_llm)
@@ -321,14 +444,13 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
 
         return response.content
 
-    @observe(name="conversation-agent-process")
+    @observe(name="onboarding-agent-process")
     def process(self, state: BusinessPartnerState) -> Dict:
         """
-        Main entry point for the Conversation Agent.
+        Main entry point for the Onboarding Agent.
 
-        Manages conversation flow and determines which specialist agents to call.
+        Manages conversation flow, analyzes photos, and determines routing.
         """
-
         # Fetch system prompt if not already in state
         if not state.get("system_prompt"):
             system_prompt = self.get_system_prompt()
@@ -342,6 +464,28 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
             current_photos.extend(photos_in_message)
             state["photos"] = current_photos
 
+        # Analyze any new photos that haven't been analyzed yet
+        num_photos = len(state.get("photos", []))
+        num_analyzed = len(state.get("photo_insights", []))
+        
+        if num_photos > num_analyzed:
+            # Extract business context
+            business_context = {
+                "business_type": state.get("business_type"),
+                "location": state.get("location"),
+                "business_name": state.get("business_name"),
+            }
+
+            # Analyze new photos
+            photo_insights = state.get("photo_insights", [])
+            for idx in range(num_analyzed, num_photos):
+                photo_b64 = state.get("photos", [])[idx]
+                if photo_b64:
+                    insight = self.analyze_photo(photo_b64, idx, business_context)
+                    photo_insights.append(insight)
+
+            state["photo_insights"] = photo_insights
+
         # Check info completeness
         info_complete = self._check_if_info_complete(state)
 
@@ -354,9 +498,7 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
         next_agent = None
         servicing_type = None
 
-        if self._should_call_vision_agent(state):
-            next_agent = "vision"
-        elif self._should_call_underwriting_agent(state):
+        if self._should_call_underwriting_agent(state):
             next_agent = "underwriting"
         elif state.get("loan_accepted") and not state.get("coaching_provided"):
             next_agent = "coaching"
@@ -372,6 +514,7 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
             "messages": [AIMessage(content=response_text)],
             "system_prompt": system_prompt,
             "info_complete": info_complete,
+            "photos_received": num_photos > 0,
             "next_agent": next_agent,
         }
         
@@ -383,9 +526,10 @@ Keep responses SHORT (2-3 paragraphs max). Ask 1-2 questions at a time. Be conve
 
 
 # Singleton instance (instantiated after env is loaded)
-conversation_agent = None
+onboarding_agent = None
 
-def initialize_conversation_agent():
-    global conversation_agent
-    if conversation_agent is None:
-        conversation_agent = ConversationAgent()
+def initialize_onboarding_agent():
+    global onboarding_agent
+    if onboarding_agent is None:
+        onboarding_agent = OnboardingAgent()
+

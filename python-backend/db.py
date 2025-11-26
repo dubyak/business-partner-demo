@@ -7,6 +7,7 @@ to Supabase during the agent workflow.
 
 import os
 from typing import List, Dict, Optional
+from datetime import datetime
 from supabase import create_client, Client
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
@@ -276,5 +277,234 @@ async def save_photo_analysis(conversation_id: str, state: Dict) -> List[Dict]:
         
     except Exception as e:
         print(f"[DB] ✗ Error in save_photo_analysis: {e}")
+        raise
+
+
+# =====================================================
+# SERVICING-RELATED DATABASE FUNCTIONS
+# =====================================================
+
+async def create_loan_from_application(conversation_id: str, state: Dict) -> Optional[Dict]:
+    """
+    Create an active loan record after loan acceptance.
+    
+    Args:
+        conversation_id: The conversation UUID
+        state: The BusinessPartnerState dictionary
+        
+    Returns:
+        Dict containing the created loan record
+    """
+    try:
+        loan_offer = state.get('loan_offer')
+        if not loan_offer:
+            print(f"[DB] No loan offer in state, cannot create loan")
+            return None
+        
+        # Find the loan application
+        app_response = supabase.table("loan_applications").select("id").eq(
+            "conversation_id", conversation_id
+        ).eq("status", "accepted").execute()
+        
+        if not app_response.data:
+            print(f"[DB] No accepted loan application found for conversation {conversation_id}")
+            return None
+        
+        loan_application_id = app_response.data[0]['id']
+        
+        print(f"[DB] Creating loan from application {loan_application_id}")
+        
+        response = supabase.table("loans").insert({
+            "user_id": state['user_id'],
+            "loan_application_id": loan_application_id,
+            "conversation_id": conversation_id,
+            "loan_amount": loan_offer.get('amount'),
+            "term_days": loan_offer.get('term_days'),
+            "installments": loan_offer.get('installments'),
+            "installment_amount": loan_offer.get('installment_amount'),
+            "total_repayment": loan_offer.get('total_repayment'),
+            "interest_rate": loan_offer.get('interest_rate_flat'),
+            "status": "active"
+        }).execute()
+        
+        print(f"[DB] ✓ Created loan: {response.data[0]['id']}")
+        return response.data[0]
+        
+    except Exception as e:
+        print(f"[DB] ✗ Error in create_loan_from_application: {e}")
+        raise
+
+
+async def save_disbursement(loan_id: str, disbursement_info: Dict) -> Optional[Dict]:
+    """
+    Save disbursement record.
+    
+    Args:
+        loan_id: The loan UUID
+        disbursement_info: Disbursement details from state
+        
+    Returns:
+        Dict containing the saved disbursement record
+    """
+    try:
+        print(f"[DB] Saving disbursement for loan {loan_id}")
+        
+        response = supabase.table("disbursements").insert({
+            "loan_id": loan_id,
+            "user_id": disbursement_info.get('user_id'),  # Should be in disbursement_info
+            "amount": disbursement_info.get('amount'),
+            "bank_account": disbursement_info.get('bank_account'),
+            "status": disbursement_info.get('status', 'initiated'),
+            "reference_number": disbursement_info.get('reference_number'),
+            "initiated_at": disbursement_info.get('initiated_at'),
+            "estimated_completion": disbursement_info.get('estimated_completion'),
+            "metadata": disbursement_info  # Store full info as JSONB
+        }).execute()
+        
+        print(f"[DB] ✓ Saved disbursement: {response.data[0]['id']}")
+        return response.data[0]
+        
+    except Exception as e:
+        print(f"[DB] ✗ Error in save_disbursement: {e}")
+        raise
+
+
+async def save_repayment(loan_id: str, repayment_info: Dict) -> Optional[Dict]:
+    """
+    Save repayment record.
+    
+    Args:
+        loan_id: The loan UUID
+        repayment_info: Repayment details from state
+        
+    Returns:
+        Dict containing the saved repayment record
+    """
+    try:
+        print(f"[DB] Saving repayment for loan {loan_id}")
+        
+        # Calculate due date from payment schedule if available
+        due_date = repayment_info.get('due_date')
+        if not due_date:
+            # Default to 15 days from now (would be calculated from schedule in production)
+            from datetime import datetime, timedelta
+            due_date = (datetime.now() + timedelta(days=15)).strftime("%Y-%m-%d")
+        
+        response = supabase.table("repayments").insert({
+            "loan_id": loan_id,
+            "user_id": repayment_info.get('user_id'),  # Should be in repayment_info
+            "installment_number": repayment_info.get('installment_number', 1),
+            "amount": repayment_info.get('amount'),
+            "method": repayment_info.get('method'),
+            "bank_account": repayment_info.get('bank_account'),
+            "status": repayment_info.get('status', 'processing'),
+            "reference_number": repayment_info.get('reference_number'),
+            "due_date": due_date,
+            "initiated_at": repayment_info.get('initiated_at'),
+            "estimated_completion": repayment_info.get('estimated_completion'),
+            "metadata": repayment_info  # Store full info as JSONB
+        }).execute()
+        
+        print(f"[DB] ✓ Saved repayment: {response.data[0]['id']}")
+        return response.data[0]
+        
+    except Exception as e:
+        print(f"[DB] ✗ Error in save_repayment: {e}")
+        raise
+
+
+async def get_or_create_recovery_conversation(loan_id: str, user_id: str, conversation_id: str, outstanding_balance: float) -> Dict:
+    """
+    Get existing recovery conversation or create a new one.
+    
+    Args:
+        loan_id: The loan UUID
+        user_id: The user UUID
+        conversation_id: The conversation UUID
+        outstanding_balance: Current outstanding balance
+        
+    Returns:
+        Dict containing the recovery conversation record
+    """
+    try:
+        # Try to find existing active recovery conversation
+        response = supabase.table("recovery_conversations").select("*").eq(
+            "loan_id", loan_id
+        ).in_("status", ["initial", "in_conversation", "resolution_pending"]).execute()
+        
+        if response.data and len(response.data) > 0:
+            # Update last interaction time
+            recovery_id = response.data[0]['id']
+            supabase.table("recovery_conversations").update({
+                "last_interaction_at": datetime.now().isoformat(),
+                "outstanding_balance": outstanding_balance
+            }).eq("id", recovery_id).execute()
+            
+            print(f"[DB] Found existing recovery conversation: {recovery_id}")
+            return response.data[0]
+        
+        # Create new recovery conversation
+        print(f"[DB] Creating new recovery conversation for loan {loan_id}")
+        response = supabase.table("recovery_conversations").insert({
+            "loan_id": loan_id,
+            "user_id": user_id,
+            "conversation_id": conversation_id,
+            "status": "initial",
+            "outstanding_balance": outstanding_balance
+        }).execute()
+        
+        print(f"[DB] ✓ Created recovery conversation: {response.data[0]['id']}")
+        return response.data[0]
+        
+    except Exception as e:
+        print(f"[DB] ✗ Error in get_or_create_recovery_conversation: {e}")
+        raise
+
+
+async def update_recovery_conversation(recovery_id: str, status: str, resolution_type: Optional[str] = None, resolution_details: Optional[Dict] = None) -> bool:
+    """
+    Update recovery conversation status and resolution details.
+    
+    Args:
+        recovery_id: The recovery conversation UUID
+        status: New status
+        resolution_type: Type of resolution (if resolved)
+        resolution_details: Details of the resolution
+        
+    Returns:
+        True if update successful
+    """
+    try:
+        print(f"[DB] Updating recovery conversation {recovery_id} to status '{status}'")
+        
+        update_data = {
+            "status": status,
+            "last_interaction_at": datetime.now().isoformat()
+        }
+        
+        if resolution_type:
+            update_data["resolution_type"] = resolution_type
+        
+        if resolution_details:
+            update_data["resolution_details"] = resolution_details
+        
+        if status == "resolved":
+            update_data["resolved_at"] = datetime.now().isoformat()
+        elif status == "escalated":
+            update_data["escalated_at"] = datetime.now().isoformat()
+        
+        response = supabase.table("recovery_conversations").update(update_data).eq(
+            "id", recovery_id
+        ).execute()
+        
+        if response.data:
+            print(f"[DB] ✓ Updated recovery conversation to '{status}'")
+            return True
+        else:
+            print(f"[DB] No recovery conversation found to update")
+            return False
+        
+    except Exception as e:
+        print(f"[DB] ✗ Error in update_recovery_conversation: {e}")
         raise
 

@@ -65,11 +65,25 @@ class BusinessPartnerState(TypedDict):
     loan_offer: Optional[LoanOffer]
 
     # Progress tracking
-    onboarding_stage: str  # "greeting", "info_gathering", "photo_analysis", "underwriting", "coaching"
+    onboarding_stage: str  # "greeting", "info_gathering", "photo_analysis", "underwriting", "coaching", "servicing"
     info_complete: bool
     photos_received: bool
     loan_offered: bool
     loan_accepted: bool
+
+    # Servicing-related fields
+    servicing_type: Optional[str]  # "disbursement", "repayment", "payment_schedule", "repayment_impact", "recovery", "general"
+    disbursement_status: Optional[str]  # "pending", "initiated", "completed", "failed", "error"
+    disbursement_info: Optional[dict]  # Disbursement details (amount, bank account, reference, dates)
+    repayment_status: Optional[str]  # "pending", "processing", "completed", "failed", "error"
+    repayment_info: Optional[dict]  # Repayment details (method, amount, reference, dates)
+    repayment_method: Optional[str]  # "existing_bank", "new_account", "in_person"
+    payment_schedule: Optional[dict]  # Payment schedule with installments and due dates
+    repayment_impact_explanation: Optional[str]  # Explanation of repayment behavior impact
+    recovery_status: Optional[str]  # "initial", "in_conversation", "resolution_pending", "resolved", "escalated"
+    recovery_info: Optional[dict]  # Recovery conversation details
+    recovery_response: Optional[str]  # Response from recovery conversation
+    bank_account: Optional[str]  # User's bank account info (masked)
 
     # Agent routing
     next_agent: Optional[str]  # Which specialist agent to call next, if any

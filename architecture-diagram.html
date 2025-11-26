@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Partner AI - Architecture Overview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #2D3436;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 60px;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 20px;
+            color: #636E72;
+            margin-bottom: 50px;
+        }
+
+        .section {
+            margin-bottom: 60px;
+        }
+
+        .section-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2D3436;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 6px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+        }
+
+        /* Flow Diagram */
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            margin: 40px 0;
+        }
+
+        .flow-step {
+            background: #F8F9FA;
+            border-left: 5px solid #667eea;
+            border-radius: 12px;
+            padding: 30px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .flow-step:hover {
+            transform: translateX(10px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+        }
+
+        .flow-step::after {
+            content: '↓';
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .flow-step:last-child::after {
+            display: none;
+        }
+
+        .flow-step-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .flow-step-icon {
+            font-size: 36px;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+        }
+
+        .flow-step-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2D3436;
+        }
+
+        .flow-step-description {
+            font-size: 16px;
+            color: #636E72;
+            line-height: 1.6;
+            margin-left: 76px;
+        }
+
+        /* Agent Cards */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin: 40px 0;
+        }
+
+        .agent-card {
+            background: white;
+            border: 2px solid #E9ECEF;
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .agent-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .agent-card:hover {
+            border-color: #667eea;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.15);
+        }
+
+        .agent-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .agent-card-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .agent-icon {
+            font-size: 32px;
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .agent-icon.conversation { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .agent-icon.vision { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .agent-icon.underwriting { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .agent-icon.coaching { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+
+        .agent-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2D3436;
+        }
+
+        .agent-description {
+            font-size: 15px;
+            color: #636E72;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .agent-responsibilities {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .agent-responsibilities li {
+            font-size: 14px;
+            color: #636E72;
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .agent-responsibilities li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        /* Tech Stack */
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+
+        .tech-item {
+            background: #F8F9FA;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .tech-item:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .tech-item-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .tech-item-purpose {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        /* Data Flow */
+        .data-flow {
+            background: #F8F9FA;
+            border-radius: 16px;
+            padding: 40px;
+            margin: 40px 0;
+        }
+
+        .data-flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .data-box {
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 150px;
+            text-align: center;
+            font-weight: 600;
+            color: #2D3436;
+            position: relative;
+        }
+
+        .data-box::after {
+            content: '→';
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #667eea;
+        }
+
+        .data-box:last-child::after {
+            display: none;
+        }
+
+        /* ELI5 Section */
+        .eli5-box {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-left: 5px solid #667eea;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 40px 0;
+        }
+
+        .eli5-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2D3436;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .eli5-content {
+            font-size: 18px;
+            color: #636E72;
+            line-height: 1.8;
+        }
+
+        .highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+
+        /* LangGraph Flow Diagram */
+        .langgraph-container {
+            background: #F8F9FA;
+            border-radius: 20px;
+            padding: 50px;
+            margin: 40px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .langgraph-diagram {
+            position: relative;
+            min-height: 600px;
+        }
+
+        .node {
+            position: absolute;
+            background: white;
+            border: 3px solid;
+            border-radius: 16px;
+            padding: 20px 30px;
+            min-width: 180px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .node.start {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .node.conversation {
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .node.vision {
+            top: 350px;
+            left: 10%;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-color: #f5576c;
+        }
+
+        .node.underwriting {
+            top: 350px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border-color: #00f2fe;
+        }
+
+        .node.coaching {
+            top: 350px;
+            right: 10%;
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            border-color: #38f9d7;
+        }
+
+        .node.end {
+            top: 550px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #E9ECEF;
+            color: #636E72;
+            border-color: #636E72;
+        }
+
+        .arrow {
+            position: absolute;
+            stroke: #667eea;
+            stroke-width: 3;
+            fill: none;
+            marker-end: url(#arrowhead);
+            animation: drawArrow 1s ease-out;
+            z-index: 5;
+        }
+
+        .arrow.loop {
+            stroke: #f5576c;
+            stroke-width: 4;
+            stroke-dasharray: 5,5;
+            animation: drawArrowLoop 2s ease-in-out infinite;
+        }
+
+        .arrow-label {
+            position: absolute;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            background: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 15;
+        }
+
+        .arrow-label.loop {
+            color: #f5576c;
+        }
+
+        @keyframes drawArrow {
+            from { stroke-dashoffset: 1000; }
+            to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes drawArrowLoop {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .routing-box {
+            position: absolute;
+            top: 280px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(102, 126, 234, 0.1);
+            border: 2px dashed #667eea;
+            border-radius: 12px;
+            padding: 15px 25px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+            z-index: 8;
+        }
+
+        .legend {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #636E72;
+        }
+
+        .legend-line {
+            width: 30px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .legend-line.solid {
+            background: #667eea;
+        }
+
+        .legend-line.dashed {
+            background: #f5576c;
+            border-top: 2px dashed #f5576c;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+
+            .agents-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .data-flow-diagram {
+                flex-direction: column;
+            }
+
+            .data-box::after {
+                content: '↓';
+                right: 50%;
+                bottom: -30px;
+                top: auto;
+                transform: translateX(50%);
+            }
+
+            .langgraph-container {
+                padding: 20px;
+            }
+
+            .langgraph-diagram {
+                min-height: 800px;
+            }
+
+            .node {
+                position: relative;
+                margin: 20px auto;
+                min-width: 200px;
+            }
+
+            .node.start,
+            .node.conversation,
+            .node.end {
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .node.vision,
+            .node.underwriting,
+            .node.coaching {
+                left: 50%;
+                transform: translateX(-50%);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏗️ Business Partner AI Architecture</h1>
+        <p class="subtitle">A simple guide to how everything works together</p>
+
+        <!-- ELI5 Section -->
+        <div class="eli5-box">
+            <div class="eli5-title">🤔 Explain Like I'm 5</div>
+            <div class="eli5-content">
+                Imagine you're a small business owner who needs a loan. Instead of filling out boring forms, you just <span class="highlight">chat with a friendly AI assistant</span>. 
+                This assistant is actually <span class="highlight">four specialized helpers working together</span>: one talks to you, one looks at your business photos, 
+                one decides if you can get a loan, and one gives you business advice. They all share information and work as a team to help you succeed. 
+                It's like having a smart business consultant who never sleeps and knows everything about loans and running a business!
+            </div>
+        </div>
+
+        <!-- High-Level Flow -->
+        <div class="section">
+            <div class="section-title">🔄 How It Works: The Big Picture</div>
+            <div class="flow-container">
+                <div class="flow-step">
+                    <div class="flow-step-header">
+                        <div class="flow-step-icon">👤</div>
+                        <div class="flow-step-title">You Start a Conversation</div>
+                    </div>
+                    <div class="flow-step-description">
+                        You open the chat interface and start talking about your business. Maybe you upload some photos of your store or workspace. 
+                        The system creates a unique session to track everything.
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="flow-step-header">
+                        <div class="flow-step-icon">🧠</div>
+                        <div class="flow-step-title">Conversation Agent Takes Over</div>
+                    </div>
+                    <div class="flow-step-description">
+                        The main conversation agent talks with you, asks questions, and collects information about your business. 
+                        It's like a friendly loan officer who remembers everything you tell them.
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="flow-step-header">
+                        <div class="flow-step-icon">🔀</div>
+                        <div class="flow-step-title">Smart Routing Happens</div>
+                    </div>
+                    <div class="flow-step-description">
+                        Based on what you've shared, the system automatically calls specialist agents:
+                        <ul style="margin-top: 12px; margin-left: 20px; color: #636E72;">
+                            <li>If you shared photos → Vision Agent analyzes them</li>
+                            <li>If you're ready for a loan → Underwriting Agent evaluates</li>
+                            <li>If you need advice → Coaching Agent helps</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="flow-step-header">
+                        <div class="flow-step-icon">💬</div>
+                        <div class="flow-step-title">You Get a Response</div>
+                    </div>
+                    <div class="flow-step-description">
+                        All the agents work together, and you get a helpful response that might include business insights, 
+                        a loan offer, or coaching advice. The conversation continues naturally!
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LangGraph Flow Diagram -->
+        <div class="section">
+            <div class="section-title">🔄 LangGraph Agent Flow (With Loops!)</div>
+            <div class="langgraph-container">
+                <p style="text-align: center; margin-bottom: 30px; color: #636E72; font-size: 16px;">
+                    This diagram shows how agents loop back to the Conversation Agent, creating a continuous workflow. 
+                    The <span style="color: #f5576c; font-weight: 600;">dashed red arrows</span> show the loop back to Conversation.
+                </p>
+                
+                <div class="langgraph-diagram">
+                    <!-- SVG for arrows - using viewBox for responsive scaling -->
+                    <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#667eea" />
+                            </marker>
+                            <marker id="arrowhead-loop" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#f5576c" />
+                            </marker>
+                        </defs>
+                        
+                        <!-- Start to Conversation (vertical down) -->
+                        <line class="arrow" x1="400" y1="50" x2="400" y2="150" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <!-- Conversation to Vision (diagonal left) -->
+                        <line class="arrow" x1="320" y1="220" x2="160" y2="350" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <!-- Conversation to Underwriting (vertical down) -->
+                        <line class="arrow" x1="400" y1="220" x2="400" y2="350" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <!-- Conversation to Coaching (diagonal right) -->
+                        <line class="arrow" x1="480" y1="220" x2="640" y2="350" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                        
+                        <!-- Loop back: Vision → Conversation (curved path) -->
+                        <path class="arrow loop" d="M 160 380 Q 80 450 400 480 L 400 220" stroke="#f5576c" stroke-width="4" fill="none" stroke-dasharray="5,5" marker-end="url(#arrowhead-loop)" />
+                        
+                        <!-- Loop back: Underwriting → Conversation (straight up) -->
+                        <path class="arrow loop" d="M 400 380 L 400 220" stroke="#f5576c" stroke-width="4" fill="none" stroke-dasharray="5,5" marker-end="url(#arrowhead-loop)" />
+                        
+                        <!-- Loop back: Coaching → Conversation (curved path) -->
+                        <path class="arrow loop" d="M 640 380 Q 720 450 400 480 L 400 220" stroke="#f5576c" stroke-width="4" fill="none" stroke-dasharray="5,5" marker-end="url(#arrowhead-loop)" />
+                        
+                        <!-- Conversation to End (vertical down) -->
+                        <line class="arrow" x1="400" y1="220" x2="400" y2="550" stroke="#667eea" stroke-width="3" marker-end="url(#arrowhead)" />
+                    </svg>
+                    
+                    <!-- Nodes -->
+                    <div class="node start">START</div>
+                    <div class="node conversation">💬 Conversation Agent<br><small style="font-size: 12px; opacity: 0.9;">Main Coordinator</small></div>
+                    <div class="routing-box">Conditional Routing<br><small style="font-size: 11px; opacity: 0.8;">Based on State</small></div>
+                    <div class="node vision">👁️ Vision Agent<br><small style="font-size: 12px; opacity: 0.9;">Photo Analysis</small></div>
+                    <div class="node underwriting">💰 Underwriting Agent<br><small style="font-size: 12px; opacity: 0.9;">Loan Decisions</small></div>
+                    <div class="node coaching">📈 Coaching Agent<br><small style="font-size: 12px; opacity: 0.9;">Business Advice</small></div>
+                    <div class="node end">END<br><small style="font-size: 12px; opacity: 0.9;">Response Sent</small></div>
+                    
+                    <!-- Arrow Labels -->
+                    <div class="arrow-label" style="top: 95px; left: 55%;">Initial</div>
+                    <div class="arrow-label" style="top: 280px; left: 15%;">If photos</div>
+                    <div class="arrow-label" style="top: 280px; left: 52%;">If ready</div>
+                    <div class="arrow-label" style="top: 280px; right: 15%;">If accepted</div>
+                    <div class="arrow-label loop" style="top: 420px; left: 15%;">Loop back</div>
+                    <div class="arrow-label loop" style="top: 420px; left: 52%;">Loop back</div>
+                    <div class="arrow-label loop" style="top: 420px; right: 15%;">Loop back</div>
+                    <div class="arrow-label" style="top: 380px; left: 52%;">If done</div>
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-line solid"></div>
+                        <span>Forward flow</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line dashed"></div>
+                        <span>Loop back to Conversation</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 40px; padding: 24px; background: white; border-radius: 12px; border-left: 4px solid #667eea;">
+                    <h4 style="font-size: 18px; font-weight: 700; color: #2D3436; margin-bottom: 12px;">🔄 How the Loop Works</h4>
+                    <p style="color: #636E72; line-height: 1.8; font-size: 15px;">
+                        <strong>1. Start:</strong> Every conversation begins with the Conversation Agent.<br>
+                        <strong>2. Route:</strong> Based on what you've shared, it routes to a specialist (Vision, Underwriting, or Coaching).<br>
+                        <strong>3. Process:</strong> The specialist agent does its work (analyzes photos, evaluates loan, gives advice).<br>
+                        <strong>4. Loop Back:</strong> The specialist <span class="highlight">always returns to Conversation Agent</span> to integrate results.<br>
+                        <strong>5. Continue or End:</strong> Conversation Agent can route to another specialist, or end if everything is done.<br>
+                        <br>
+                        <strong>💡 Key Insight:</strong> This loop allows multiple specialists to work together in one conversation. 
+                        For example, you might upload photos (Vision) → get a loan offer (Underwriting) → receive coaching (Coaching) → all in one seamless flow!
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agents Section -->
+        <div class="section">
+            <div class="section-title">🤖 Meet the Agents</div>
+            <div class="agents-grid">
+                <div class="agent-card">
+                    <div class="agent-card-header">
+                        <div class="agent-icon conversation">💬</div>
+                        <div class="agent-name">Conversation Agent</div>
+                    </div>
+                    <div class="agent-description">
+                        The main coordinator who talks with you and decides when to call in specialists.
+                    </div>
+                    <ul class="agent-responsibilities">
+                        <li>Manages the conversation flow</li>
+                        <li>Collects business information</li>
+                        <li>Routes to specialist agents</li>
+                        <li>Provides friendly, natural responses</li>
+                    </ul>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-card-header">
+                        <div class="agent-icon vision">👁️</div>
+                        <div class="agent-name">Vision Agent</div>
+                    </div>
+                    <div class="agent-description">
+                        Your visual business consultant who analyzes photos of your store, inventory, or workspace.
+                    </div>
+                    <ul class="agent-responsibilities">
+                        <li>Analyzes business photos</li>
+                        <li>Provides visual insights</li>
+                        <li>Gives actionable tips</li>
+                        <li>Assesses business presentation</li>
+                    </ul>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-card-header">
+                        <div class="agent-icon underwriting">💰</div>
+                        <div class="agent-name">Underwriting Agent</div>
+                    </div>
+                    <div class="agent-description">
+                        The loan expert who evaluates your business and creates personalized loan offers.
+                    </div>
+                    <ul class="agent-responsibilities">
+                        <li>Calculates risk scores</li>
+                        <li>Generates loan offers</li>
+                        <li>Determines loan terms</li>
+                        <li>Makes lending decisions</li>
+                    </ul>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-card-header">
+                        <div class="agent-icon coaching">📈</div>
+                        <div class="agent-name">Coaching Agent</div>
+                    </div>
+                    <div class="agent-description">
+                        Your 24/7 business coach who provides personalized advice to help you grow.
+                    </div>
+                    <ul class="agent-responsibilities">
+                        <li>Provides business coaching</li>
+                        <li>Offers growth strategies</li>
+                        <li>Gives cash flow advice</li>
+                        <li>Helps with profitability</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Flow -->
+        <div class="section">
+            <div class="section-title">📊 Data Flow</div>
+            <div class="data-flow">
+                <div class="data-flow-diagram">
+                    <div class="data-box">Your Message</div>
+                    <div class="data-box">State Object</div>
+                    <div class="data-box">Agent Processing</div>
+                    <div class="data-box">Response</div>
+                </div>
+                <p style="text-align: center; margin-top: 24px; color: #636E72; font-size: 15px;">
+                    Everything flows through a shared "state" object that all agents can read and update. 
+                    This ensures everyone stays on the same page!
+                </p>
+            </div>
+        </div>
+
+        <!-- Tech Stack -->
+        <div class="section">
+            <div class="section-title">🛠️ Technology Stack</div>
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <div class="tech-item-name">LangGraph</div>
+                    <div class="tech-item-purpose">Orchestrates the agent workflow</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-item-name">Claude AI</div>
+                    <div class="tech-item-purpose">Powers all the agents' intelligence</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-item-name">FastAPI</div>
+                    <div class="tech-item-purpose">Handles API requests</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-item-name">Langfuse</div>
+                    <div class="tech-item-purpose">Tracks conversations & analytics</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-item-name">Supabase</div>
+                    <div class="tech-item-purpose">Stores conversation history</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-item-name">HTML/CSS/JS</div>
+                    <div class="tech-item-purpose">Beautiful chat interface</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Features -->
+        <div class="section">
+            <div class="section-title">✨ Key Features</div>
+            <div class="agents-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                <div class="agent-card">
+                    <div class="agent-card-header">
+                        <div class="agent-icon conversation">🎯</div>
+                        <div class="agent-name">Smart Routing</div>
+                    </div>
+                    <div class="agent-description">
+                        Automatically calls the right specialist agent at the right time based on what you need.
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-card-header">
+                        <div class="agent-icon vision">🔄</div>
+                        <div class="agent-name">State Management</div>
+                    </div>
+                    <div class="agent-description">
+                        All agents share a common state, so everyone knows what's happening in the conversation.
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-card-header">
+                        <div class="agent-icon underwriting">📸</div>
+                        <div class="agent-name">Photo Analysis</div>
+                    </div>
+                    <div class="agent-description">
+                        Upload photos of your business and get instant visual insights and recommendations.
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-card-header">
+                        <div class="agent-icon coaching">🎤</div>
+                        <div class="agent-name">Voice Input</div>
+                    </div>
+                    <div class="agent-description">
+                        Speak naturally - the system transcribes your voice directly into the chat.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 60px; padding-top: 40px; border-top: 2px solid #E9ECEF;">
+            <p style="color: #636E72; font-size: 16px;">
+                Built with ❤️ for small business owners who deserve better financial tools
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
