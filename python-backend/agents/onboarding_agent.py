@@ -951,9 +951,19 @@ Return ONLY the JSON object, no other text:"""
             "completed_tasks": state.get("completed_tasks", []),  # Include completed tasks
         }
         
-        # Include extracted business info in result so it updates state
+        # CRITICAL: Include ALL business info fields in result to ensure persistence
+        # Include extracted info (new or updated values)
         if extracted_info:
             result.update(extracted_info)
+        
+        # ALSO include existing state values to ensure they persist even if extraction didn't run
+        # This prevents state from being lost between turns
+        business_fields = ["business_type", "location", "years_operating", "num_employees", 
+                          "monthly_revenue", "monthly_expenses", "loan_purpose", "business_name"]
+        for field in business_fields:
+            if state.get(field) is not None and field not in result:
+                result[field] = state.get(field)
+                print(f"[BUSINESS-PARTNER] Preserving existing state.{field} = {state.get(field)}")
         
         # Add servicing type if routing to servicing agent
         if servicing_type:
