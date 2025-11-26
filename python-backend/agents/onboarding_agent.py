@@ -482,7 +482,7 @@ Be specific, practical, and encouraging. Focus on visual signals that indicate b
         base_system_prompt = self.get_system_prompt()
         
         # If frontend sent language instruction, extract and prepend it prominently
-        if state.get("system_prompt") and "LANGUAGE REQUIREMENT" in state.get("system_prompt", ""):
+        if state.get("system_prompt") and ("LANGUAGE REQUIREMENT" in state.get("system_prompt", "") or "CRITICAL LANGUAGE REQUIREMENT" in state.get("system_prompt", "")):
             frontend_prompt = state.get("system_prompt")
             # Extract the language instruction - find it and get the full instruction
             lang_keyword = "CRITICAL LANGUAGE REQUIREMENT" if "CRITICAL LANGUAGE REQUIREMENT" in frontend_prompt else "LANGUAGE REQUIREMENT"
