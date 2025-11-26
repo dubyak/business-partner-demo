@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Business Partner</title>
+    <title id="pageTitle">Business Partner</title>
     <style>
         :root {
             /* Android App Design System Colors */
@@ -780,7 +780,7 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <div class="chat-header-title">Business Partner</div>
+            <div class="chat-header-title" id="headerTitle">Business Partner</div>
             <div class="language-selector">
                 <label for="languageSelect">🌐</label>
                 <select id="languageSelect" title="Select language">
@@ -794,13 +794,7 @@
             <div class="message assistant" id="initialMessage">
                 <div class="message-avatar">BP</div>
                 <div class="message-content" id="initialMessageContent">
-                    Welcome back! 👋 Congratulations on completing 3 successful loan cycles with us—that's a significant milestone! 🎉<br><br>
-                    You've opted into our new experience, designed specifically for small business owners like you. I'm your AI business partner, and I'm here to work with you 24/7 to:<br><br>
-                    • Get you access to better-fit credit products tailored to your business needs<br>
-                    • Provide personalized business coaching to help you grow<br>
-                    • Support you throughout your entire credit journey<br><br>
-                    My goal is simple: to help you grow your business. Let's get you onboarded and on your way to a new loan offer.<br><br>
-                    To get started, I'd love to learn more about your business. What type of business do you run, and where are you located?
+                    <!-- Welcome message will be set by JavaScript based on selected language -->
                 </div>
             </div>
         </div>
@@ -1158,7 +1152,21 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
                 speechRecognition.lang = lang === 'es' ? 'es-ES' : 'en-US';
             }
             
-            // Welcome message removed - agent will handle greeting naturally
+            // Update page title
+            document.title = pageTitles[lang];
+            
+            // Update header title
+            const headerTitle = document.querySelector('.chat-header-title');
+            if (headerTitle) {
+                headerTitle.textContent = pageTitles[lang];
+            }
+            
+            // Update welcome message if it exists and conversation hasn't started
+            const initialMessage = document.getElementById('initialMessage');
+            const initialMessageContent = document.getElementById('initialMessageContent');
+            if (initialMessage && initialMessageContent && conversationHistory.length === 0) {
+                initialMessageContent.innerHTML = welcomeMessages[lang];
+            }
         }
         
         languageSelect.addEventListener('change', (e) => {
@@ -1182,8 +1190,14 @@ STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
         // Initialize - start with empty conversation history
         // Agent will handle the first greeting naturally
         
-        // Initialize language settings
+        // Initialize language settings (this will also set the welcome message)
         initializeLanguage();
+        
+        // Set initial welcome message based on default language
+        const initialMessageContent = document.getElementById('initialMessageContent');
+        if (initialMessageContent) {
+            initialMessageContent.innerHTML = welcomeMessages[selectedLanguage];
+        }
 
         // Helper function to process files
         function processFiles(files) {
