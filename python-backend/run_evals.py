@@ -15,7 +15,8 @@ from dotenv import load_dotenv
 from langfuse import Langfuse
 from langchain_core.messages import HumanMessage
 
-from graph import graph
+# Lazy imports to avoid requiring API keys at import time
+# from graph import graph  # Import only when needed
 from state import BusinessPartnerState
 from eval_datasets import (
     ONBOARDING_DATASET,
@@ -101,6 +102,14 @@ def create_state_from_input(messages: list) -> BusinessPartnerState:
 
 def run_onboarding_evaluations():
     """Run evaluations on onboarding dataset."""
+    # Lazy import to avoid requiring API keys at import time
+    try:
+        from graph import graph
+    except Exception as e:
+        print(f"❌ Error importing graph (API keys may be missing): {e}")
+        print("   Set ANTHROPIC_API_KEY in environment to run evaluations")
+        return []
+    
     print("=" * 80)
     print("Running Onboarding Evaluations")
     print("=" * 80)
