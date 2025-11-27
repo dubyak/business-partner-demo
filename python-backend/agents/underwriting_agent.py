@@ -15,7 +15,15 @@ from langfuse.decorators import observe, langfuse_context
 import threading
 
 from state import BusinessPartnerState, LoanOffer, PhotoInsight
-from db import save_loan_application
+
+# Optional database import - only use if available
+try:
+    from db import save_loan_application
+except (ImportError, ValueError):
+    # Database not available (e.g., in eval environment)
+    def save_loan_application(*args, **kwargs):
+        print("[UNDERWRITING] Database not available - skipping loan application save")
+        return None
 
 
 class UnderwritingAgent:

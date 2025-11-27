@@ -19,7 +19,14 @@ from langfuse.decorators import observe, langfuse_context
 import threading
 
 from state import BusinessPartnerState
-from db import update_loan_status
+# Optional database import - only use if available
+try:
+    from db import update_loan_status
+except (ImportError, ValueError):
+    # Database not available (e.g., in eval environment)
+    def update_loan_status(*args, **kwargs):
+        print("[SERVICING] Database not available - skipping loan status update")
+        return None
 
 
 class ServicingAgent:
