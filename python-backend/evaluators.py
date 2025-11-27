@@ -6,19 +6,13 @@ These evaluators can be used with Langfuse's evaluation framework.
 
 import os
 import re
-from typing import Dict, Any
-from langfuse import Langfuse
-from langfuse.decorators import langfuse_eval
+from typing import Dict, Any, Optional
 
-langfuse = Langfuse(
-    secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-    public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-    host=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
-)
+# Note: Langfuse evaluators are typically created in the UI or via API
+# These are helper functions that can be used with Langfuse's evaluation framework
+# To use with Langfuse, create evaluators in the UI and reference them, or use the API
 
-
-@langfuse_eval
-def evaluate_no_looping(output: str, expected_state: dict, forbidden_phrases: list = None) -> float:
+def evaluate_no_looping(output: str, expected_state: dict, forbidden_phrases: Optional[list] = None) -> float:
     """
     Evaluates if agent avoids asking for already-collected information.
     
@@ -83,7 +77,6 @@ def evaluate_no_looping(output: str, expected_state: dict, forbidden_phrases: li
     return max(0.0, min(1.0, score))
 
 
-@langfuse_eval
 def evaluate_state_extraction(output_state: dict, expected_state: dict) -> float:
     """
     Evaluates if state extraction is accurate.
@@ -119,7 +112,6 @@ def evaluate_state_extraction(output_state: dict, expected_state: dict) -> float
     return matches / total if total > 0 else 0.0
 
 
-@langfuse_eval
 def evaluate_response_quality(output: str, context: dict) -> float:
     """
     Evaluates response quality using simple heuristics.
@@ -154,7 +146,6 @@ def evaluate_response_quality(output: str, context: dict) -> float:
     return max(0.0, min(1.0, score))
 
 
-@langfuse_eval
 def evaluate_routing_accuracy(actual_routing: list, expected_routing: list) -> float:
     """
     Evaluates if agents were called in the correct order.
@@ -185,7 +176,6 @@ def evaluate_routing_accuracy(actual_routing: list, expected_routing: list) -> f
     return matches / len(expected_routing) if expected_routing else 0.0
 
 
-@langfuse_eval
 def evaluate_onboarding_efficiency(num_exchanges: int, target_exchanges: int = 7) -> float:
     """
     Evaluates if onboarding was completed efficiently.
