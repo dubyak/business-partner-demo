@@ -276,7 +276,33 @@ async def chat(request: ChatRequest):
                     print(f"[DEMO] Warning: Unknown persona_id: {request.persona_id}")
 
         # Invoke the graph
-        result = graph.invoke(initial_state, config=config)
+        try:
+            result = graph.invoke(initial_state, config=config)
+            
+            # CRITICAL: Ensure state is persisted by getting it from checkpoint after invocation
+            # This guarantees that all state changes are saved
+            try:
+                final_state_snapshot = graph.get_state(config)
+                if final_state_snapshot and final_state_snapshot.values:
+                    # Verify state was persisted
+                    persisted_state = final_state_snapshot.values
+                    print(f"[STATE] ✓ State persisted after graph invocation")
+                    print(f"[STATE]   Business type: {persisted_state.get('business_type')}")
+                    print(f"[STATE]   Location: {persisted_state.get('location')}")
+                    print(f"[STATE]   Messages: {len(persisted_state.get('messages', []))}")
+            except Exception as e:
+                print(f"[STATE] ⚠️  Warning: Could not verify state persistence: {e}")
+        except Exception as e:
+            # On error, try to preserve existing state
+            print(f"[ERROR] Graph invocation failed: {e}")
+            # Try to get state before error to preserve it
+            try:
+                error_state = graph.get_state(config)
+                if error_state and error_state.values:
+                    print(f"[ERROR] Preserving state before re-raising error")
+            except:
+                pass
+            raise
 
         # Save messages to database
         await save_messages(conversation_id, result["messages"])

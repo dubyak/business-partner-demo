@@ -11,9 +11,18 @@ The graph structure:
 4. End when no more agents need to be called
 """
 
+import os
 from typing import Literal
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
+
+# Try to use SqliteSaver for persistent storage, fallback to MemorySaver
+try:
+    from langgraph.checkpoint.sqlite import SqliteSaver
+    USE_SQLITE = True
+except ImportError:
+    USE_SQLITE = False
+    print("[GRAPH] SqliteSaver not available, using MemorySaver (in-memory only)")
 
 from state import BusinessPartnerState
 from agents.onboarding_agent import OnboardingAgent
@@ -117,8 +126,18 @@ def build_graph() -> StateGraph:
     workflow.add_edge("coaching", "business_partner")
 
     # Compile with checkpointer for conversation memory
-    memory = MemorySaver()
-    app = workflow.compile(checkpointer=memory)
+    # Use SqliteSaver for persistent storage if available, otherwise MemorySaver
+    if USE_SQLITE:
+        # Use SQLite for persistent checkpoint storage
+        # This ensures state persists across server restarts
+        db_path = os.getenv("LANGRAPH_CHECKPOINT_DB", "checkpoints.db")
+        checkpointer = SqliteSaver.from_conn_string(db_path)
+        print(f"[GRAPH] Using SqliteSaver for persistent checkpoints: {db_path}")
+    else:
+        checkpointer = MemorySaver()
+        print("[GRAPH] Using MemorySaver (in-memory only - state lost on restart)")
+    
+    app = workflow.compile(checkpointer=checkpointer)
 
     return app
 

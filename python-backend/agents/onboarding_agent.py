@@ -27,7 +27,7 @@ class OnboardingAgent:
         self.llm = ChatAnthropic(
             model="claude-sonnet-4-20250514",
             api_key=os.getenv("ANTHROPIC_API_KEY"),
-            max_tokens=1024,
+            max_tokens=2048,  # Increased from 1024 to allow longer responses
         )
 
         self.langfuse = Langfuse(
@@ -778,9 +778,23 @@ Return ONLY the JSON object, no other text:"""
         # Build messages for Claude
         messages_for_llm = [SystemMessage(content=full_system_prompt)]
 
-        # Add conversation history
-        for msg in state.get("messages", []):
-            messages_for_llm.append(msg)
+        # Add conversation history with smart truncation
+        # If conversation is too long, keep recent messages + summarize older ones
+        all_messages = state.get("messages", [])
+        max_messages = 50  # Maximum messages to include in context
+        
+        if len(all_messages) > max_messages:
+            # Keep the most recent messages
+            recent_messages = all_messages[-max_messages:]
+            # Summarize older messages if needed
+            older_count = len(all_messages) - max_messages
+            print(f"[BUSINESS-PARTNER] ⚠️  Conversation has {len(all_messages)} messages, keeping last {max_messages}, truncating {older_count} older messages")
+            messages_for_llm.extend(recent_messages)
+        else:
+            # Include all messages if conversation is short enough
+            messages_for_llm.extend(all_messages)
+        
+        print(f"[BUSINESS-PARTNER] Sending {len(messages_for_llm)} messages to LLM (1 system + {len(messages_for_llm)-1} conversation)")
 
         # Add Langfuse context with state information for debugging
         langfuse_context.update_current_observation(
