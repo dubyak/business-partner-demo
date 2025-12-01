@@ -14,11 +14,12 @@ from typing import Dict, Optional, List
 from datetime import datetime, timedelta
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
-from langfuse import Langfuse
 from langfuse.decorators import observe, langfuse_context
 import threading
 
 from state import BusinessPartnerState
+from langfuse_config import get_langfuse_client
+from langfuse_callbacks import LangfuseCallbackHandler
 # Optional database import - only use if available
 try:
     from db import update_loan_status
@@ -34,17 +35,19 @@ class ServicingAgent:
     """Agent specialized in loan servicing, repayments, and recovery."""
 
     def __init__(self):
+        # Get centralized Langfuse client
+        self.langfuse = get_langfuse_client()
+        
+        # Initialize LLM with Langfuse callback for automatic tracing
+        callbacks = []
+        if self.langfuse:
+            callbacks.append(LangfuseCallbackHandler(trace_name="servicing-llm-call"))
+        
         self.llm = ChatAnthropic(
             model="claude-sonnet-4-20250514",
             api_key=os.getenv("ANTHROPIC_API_KEY"),
             max_tokens=1024,
-        )
-
-        # Initialize Langfuse for prompt management
-        self.langfuse = Langfuse(
-            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-            host=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+            callbacks=callbacks if callbacks else None,
         )
 
         # Prompt caching

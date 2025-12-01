@@ -10,7 +10,7 @@ langchain-anthropic==0.3.0
 langchain-core>=0.3.17,<0.4.0
 
 # Observability
-langfuse==2.53.0
+langfuse>=3.0.0
 
 # Utilities
 python-dotenv==1.0.1

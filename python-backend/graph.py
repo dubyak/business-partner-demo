@@ -15,6 +15,7 @@ import os
 from typing import Literal
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
+from langfuse.decorators import observe, langfuse_context
 
 # Try to use SqliteSaver for persistent storage, fallback to MemorySaver
 try:
@@ -37,30 +38,93 @@ _servicing_agent = None
 _coaching_agent = None
 
 
+@observe(name="graph-node-business-partner")
 def business_partner_node(state: BusinessPartnerState) -> BusinessPartnerState:
     """Business partner agent node - handles conversation, info gathering, and photo analysis."""
+    langfuse_context.update_current_observation(
+        input={
+            "phase": state.get("phase"),
+            "business_type": state.get("business_type"),
+            "message_count": len(state.get("messages", [])),
+        },
+        metadata={"node": "business_partner", "agent_type": "onboarding"},
+    )
     result = _business_partner_agent.process(state)
+    langfuse_context.update_current_observation(
+        output={
+            "next_agent": result.get("next_agent"),
+            "phase": result.get("phase"),
+            "info_complete": result.get("info_complete"),
+        }
+    )
     return result
 
 
+@observe(name="graph-node-underwriting")
 def underwriting_node(state: BusinessPartnerState) -> BusinessPartnerState:
     """Underwriting agent node - generates loan offers."""
+    langfuse_context.update_current_observation(
+        input={
+            "business_type": state.get("business_type"),
+            "monthly_revenue": state.get("monthly_revenue"),
+            "has_photo_insights": len(state.get("photo_insights", [])) > 0,
+        },
+        metadata={"node": "underwriting", "agent_type": "specialist"},
+    )
     result = _underwriting_agent.process(state)
+    langfuse_context.update_current_observation(
+        output={
+            "loan_offer_generated": result.get("loan_offer") is not None,
+            "risk_score": result.get("risk_score"),
+            "risk_tier": result.get("risk_tier"),
+        }
+    )
     return result
 
 
+@observe(name="graph-node-servicing")
 def servicing_node(state: BusinessPartnerState) -> BusinessPartnerState:
     """Servicing agent node - handles disbursement, repayments, and recovery."""
+    langfuse_context.update_current_observation(
+        input={
+            "servicing_type": state.get("servicing_type"),
+            "phase": state.get("phase"),
+            "loan_accepted": state.get("loan_accepted"),
+        },
+        metadata={"node": "servicing", "agent_type": "specialist"},
+    )
     result = _servicing_agent.process(state)
+    langfuse_context.update_current_observation(
+        output={
+            "disbursement_status": result.get("disbursement_status"),
+            "repayment_status": result.get("repayment_status"),
+            "recovery_status": result.get("recovery_status"),
+        }
+    )
     return result
 
 
+@observe(name="graph-node-coaching")
 def coaching_node(state: BusinessPartnerState) -> BusinessPartnerState:
     """Coaching agent node - provides business advice."""
+    langfuse_context.update_current_observation(
+        input={
+            "business_type": state.get("business_type"),
+            "phase": state.get("phase"),
+            "loan_accepted": state.get("loan_accepted"),
+        },
+        metadata={"node": "coaching", "agent_type": "specialist"},
+    )
     result = _coaching_agent.process(state)
+    langfuse_context.update_current_observation(
+        output={
+            "coaching_advice_generated": result.get("coaching_advice") is not None,
+        }
+    )
     return result
 
 
+@observe(name="graph-routing")
 def route_after_business_partner(state: BusinessPartnerState) -> Literal["underwriting", "servicing", "coaching", "end"]:
     """
     Routing function to determine which agent to call next after business_partner.
@@ -68,15 +132,24 @@ def route_after_business_partner(state: BusinessPartnerState) -> Literal["underw
     Based on the `next_agent` field set by the business_partner agent.
     """
     next_agent = state.get("next_agent")
-
+    
+    langfuse_context.update_current_observation(
+        input={"next_agent": next_agent, "phase": state.get("phase")},
+        metadata={"routing_decision": True},
+    )
+    
+    routing_result = None
     if next_agent == "underwriting":
-        return "underwriting"
+        routing_result = "underwriting"
     elif next_agent == "servicing":
-        return "servicing"
+        routing_result = "servicing"
     elif next_agent == "coaching":
-        return "coaching"
+        routing_result = "coaching"
     else:
-        return "end"
+        routing_result = "end"
+    
+    langfuse_context.update_current_observation(output={"routed_to": routing_result})
+    return routing_result
 
 
 def build_graph() -> StateGraph:

@@ -10,11 +10,11 @@ This agent:
 
 import os
 from typing import Dict
-from langfuse import Langfuse
 from langfuse.decorators import observe, langfuse_context
 import threading
 
 from state import BusinessPartnerState, LoanOffer, PhotoInsight
+from langfuse_config import get_langfuse_client
 
 # Optional database import - only use if available
 try:
@@ -31,12 +31,8 @@ class UnderwritingAgent:
     """Agent specialized in loan underwriting and offer generation."""
 
     def __init__(self):
-        # Initialize Langfuse for prompt management
-        self.langfuse = Langfuse(
-            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-            host=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
-        )
+        # Get centralized Langfuse client
+        self.langfuse = get_langfuse_client()
 
         # Prompt caching
         self.system_prompt = None

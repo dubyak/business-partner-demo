@@ -12,27 +12,30 @@ import os
 from typing import Dict, List
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
-from langfuse import Langfuse
 from langfuse.decorators import observe, langfuse_context
 
 from state import BusinessPartnerState
+from langfuse_config import get_langfuse_client
+from langfuse_callbacks import LangfuseCallbackHandler
 
 
 class CoachingAgent:
     """Agent specialized in providing business coaching and advice."""
 
     def __init__(self):
+        # Get centralized Langfuse client
+        self.langfuse = get_langfuse_client()
+        
+        # Initialize LLM with Langfuse callback for automatic tracing
+        callbacks = []
+        if self.langfuse:
+            callbacks.append(LangfuseCallbackHandler(trace_name="coaching-llm-call"))
+        
         self.llm = ChatAnthropic(
             model="claude-sonnet-4-20250514",
             api_key=os.getenv("ANTHROPIC_API_KEY"),
             max_tokens=800,
-        )
-
-        # Initialize Langfuse for prompt management
-        self.langfuse = Langfuse(
-            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-            host=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+            callbacks=callbacks if callbacks else None,
         )
 
         # Prompt caching

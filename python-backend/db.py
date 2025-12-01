@@ -11,6 +11,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from supabase import create_client, Client
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langfuse.decorators import observe, langfuse_context
 
 # Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
@@ -56,6 +57,7 @@ def _ensure_user_exists(user_uuid: str) -> None:
         pass  # If user creation fails, the FK constraint will catch it
 
 
+@observe(name="db-get-or-create-conversation")
 async def get_or_create_conversation(user_id: str, session_id: str) -> Dict:
     """
     Get existing conversation or create a new one.
@@ -67,6 +69,10 @@ async def get_or_create_conversation(user_id: str, session_id: str) -> Dict:
     Returns:
         Dict containing conversation record with 'id', 'user_id', 'session_id'
     """
+    langfuse_context.update_current_observation(
+        input={"user_id": user_id, "session_id": session_id},
+        metadata={"operation": "get_or_create_conversation"},
+    )
     try:
         # Convert user_id to UUID format for database
         user_uuid = _ensure_uuid(user_id)
@@ -89,6 +95,9 @@ async def get_or_create_conversation(user_id: str, session_id: str) -> Dict:
         
         if response.data and len(response.data) > 0:
             print(f"[DB] Found existing conversation: {response.data[0]['id']}")
+            langfuse_context.update_current_observation(
+                output={"conversation_id": response.data[0]['id'], "created": False}
+            )
             return response.data[0]
         
         # Create new conversation
@@ -100,6 +109,9 @@ async def get_or_create_conversation(user_id: str, session_id: str) -> Dict:
         }).execute()
         
         print(f"[DB] ✓ Created conversation: {response.data[0]['id']}")
+        langfuse_context.update_current_observation(
+            output={"conversation_id": response.data[0]['id'], "created": True}
+        )
         return response.data[0]
         
     except Exception as e:
@@ -116,6 +128,7 @@ async def get_or_create_conversation(user_id: str, session_id: str) -> Dict:
         raise
 
 
+@observe(name="db-save-messages")
 async def save_messages(conversation_id: str, messages: List[BaseMessage], last_saved_count: int = 0) -> int:
     """
     Save new messages to the database.
@@ -128,6 +141,14 @@ async def save_messages(conversation_id: str, messages: List[BaseMessage], last_
     Returns:
         Total number of messages now saved
     """
+    langfuse_context.update_current_observation(
+        input={
+            "conversation_id": conversation_id,
+            "message_count": len(messages),
+            "last_saved_count": last_saved_count,
+        },
+        metadata={"operation": "save_messages"},
+    )
     try:
         # Only save messages that haven't been saved yet
         new_messages = messages[last_saved_count:]
@@ -165,6 +186,9 @@ async def save_messages(conversation_id: str, messages: List[BaseMessage], last_
         
         new_count = len(messages)
         print(f"[DB] ✓ Saved {len(new_messages)} messages (total: {new_count})")
+        langfuse_context.update_current_observation(
+            output={"messages_saved": len(new_messages), "total_messages": new_count}
+        )
         return new_count
         
     except Exception as e:

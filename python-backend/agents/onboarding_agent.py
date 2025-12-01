@@ -14,32 +14,37 @@ import re
 from typing import Dict, List
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from langfuse import Langfuse
 from langfuse.decorators import observe, langfuse_context
 
 from state import BusinessPartnerState, PhotoInsight
+from langfuse_config import get_langfuse_client
+from langfuse_callbacks import LangfuseCallbackHandler
 
 
 class OnboardingAgent:
     """Agent specialized in customer onboarding, information gathering, and photo analysis."""
 
     def __init__(self):
+        # Get centralized Langfuse client
+        self.langfuse = get_langfuse_client()
+        
+        # Initialize LLM with Langfuse callback for automatic tracing
+        callbacks = []
+        if self.langfuse:
+            callbacks.append(LangfuseCallbackHandler(trace_name="onboarding-llm-call"))
+        
         self.llm = ChatAnthropic(
             model="claude-sonnet-4-20250514",
             api_key=os.getenv("ANTHROPIC_API_KEY"),
             max_tokens=4096,  # Output limit: max response length (Claude Sonnet 4 has 200K input context)
-        )
-
-        self.langfuse = Langfuse(
-            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-            host=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+            callbacks=callbacks if callbacks else None,
         )
 
         self.system_prompt = None
         self.prompt_cache_time = None
         self.prompt_ttl = 60  # seconds
 
+    @observe(name="onboarding-get-system-prompt")
     def get_system_prompt(self) -> str:
         """
         Fetch system prompt from Langfuse with caching.
@@ -52,25 +57,42 @@ class OnboardingAgent:
         # Return cached prompt if valid
         if self.system_prompt and self.prompt_cache_time and (now - self.prompt_cache_time < self.prompt_ttl):
             print(f"[LANGFUSE-ONBOARDING] Using cached prompt (age: {int(now - self.prompt_cache_time)}s)")
+            langfuse_context.update_current_observation(
+                output={"source": "cache", "age_seconds": int(now - self.prompt_cache_time)}
+            )
             return self.system_prompt
 
         # Try to fetch from Langfuse
-        try:
-            prompt_name = os.getenv("LANGFUSE_BUSINESS_PARTNER_PROMPT_NAME", "business-partner-agent-system")
-            print(f"[LANGFUSE-BUSINESS-PARTNER] Fetching prompt: {prompt_name}")
+        if self.langfuse:
+            try:
+                prompt_name = os.getenv("LANGFUSE_BUSINESS_PARTNER_PROMPT_NAME", "business-partner-agent-system")
+                print(f"[LANGFUSE-BUSINESS-PARTNER] Fetching prompt: {prompt_name}")
 
-            prompt_obj = self.langfuse.get_prompt(prompt_name)
+                prompt_obj = self.langfuse.get_prompt(prompt_name)
 
-            if prompt_obj and hasattr(prompt_obj, "prompt"):
-                self.system_prompt = prompt_obj.prompt
-                self.prompt_cache_time = now
-                print(f"[LANGFUSE-BUSINESS-PARTNER] ✓ Prompt fetched successfully (v{prompt_obj.version})")
-                return self.system_prompt
-            else:
-                print(f"[LANGFUSE-BUSINESS-PARTNER] ✗ Prompt object missing 'prompt' property")
+                if prompt_obj and hasattr(prompt_obj, "prompt"):
+                    self.system_prompt = prompt_obj.prompt
+                    self.prompt_cache_time = now
+                    print(f"[LANGFUSE-BUSINESS-PARTNER] ✓ Prompt fetched successfully (v{prompt_obj.version})")
+                    langfuse_context.update_current_observation(
+                        output={"source": "langfuse", "version": prompt_obj.version}
+                    )
+                    return self.system_prompt
+                else:
+                    print(f"[LANGFUSE-BUSINESS-PARTNER] ✗ Prompt object missing 'prompt' property")
+                    langfuse_context.update_current_observation(
+                        output={"source": "fallback", "reason": "prompt_object_invalid"}
+                    )
 
-        except Exception as e:
-            print(f"[LANGFUSE-BUSINESS-PARTNER] ✗ Error fetching prompt: {e}")
+            except Exception as e:
+                print(f"[LANGFUSE-BUSINESS-PARTNER] ✗ Error fetching prompt: {e}")
+                langfuse_context.update_current_observation(
+                    output={"source": "fallback", "reason": str(e)}
+                )
+        else:
+            langfuse_context.update_current_observation(
+                output={"source": "fallback", "reason": "langfuse_not_configured"}
+            )
 
         # Fallback to default prompt
         print("[LANGFUSE-BUSINESS-PARTNER] → Using fallback prompt")
