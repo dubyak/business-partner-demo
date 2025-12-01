@@ -61,7 +61,9 @@ class ChatRequest(BaseModel):
 
     messages: List[Message]
     session_id: Optional[str] = None
+    sessionId: Optional[str] = None  # Alias for frontend compatibility
     user_id: Optional[str] = "demo-user"
+    userId: Optional[str] = None  # Alias for frontend compatibility
     model: Optional[str] = "claude-sonnet-4-20250514"
     max_tokens: Optional[int] = 1024
     system: Optional[str] = None  # Allow system override for testing
@@ -96,9 +98,12 @@ async def chat(request: ChatRequest):
     """
     start_time = time.time()
 
-    # Generate session ID if not provided
-    session_id = request.session_id or f"session-{int(time.time())}"
-    user_id = request.user_id or "demo-user"
+    # Generate session ID if not provided (check both snake_case and camelCase)
+    session_id = request.session_id or request.sessionId or f"session-{int(time.time())}"
+    user_id = request.user_id or request.userId or "demo-user"
+    
+    # Log session ID for debugging
+    print(f"[CHAT] Received request - session_id: {session_id}, user_id: {user_id}")
     
     # Set up root trace for this customer journey
     langfuse = get_langfuse_client()
