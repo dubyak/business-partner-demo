@@ -130,12 +130,8 @@ async def chat(request: ChatRequest):
                 tags=["customer-journey", "langgraph", "multi-agent"],
             )
             
-            # Update the current observation (created by @observe) to link to this trace
-            langfuse_context.update_current_trace(
-                trace_id=trace.id if hasattr(trace, 'id') else None,
-                session_id=session_id,
-                user_id=user_id,
-            )
+            # Update the current observation (created by @observe) with metadata
+            # The trace will automatically be linked via the @observe decorator context
             langfuse_context.update_current_observation(
                 metadata=trace_metadata,
                 tags=["customer-journey", "langgraph", "multi-agent"],
