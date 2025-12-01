@@ -24,7 +24,8 @@ try:
     from db import update_loan_status
 except (ImportError, ValueError):
     # Database not available (e.g., in eval environment)
-    def update_loan_status(*args, **kwargs):
+    # Stub must be async to match the real function signature
+    async def update_loan_status(*args, **kwargs):
         print("[SERVICING] Database not available - skipping loan status update")
         return None
 

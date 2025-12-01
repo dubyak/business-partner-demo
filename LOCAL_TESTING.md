@@ -121,3 +121,5 @@ Or navigate to: `file:///Users/wkendall/Documents/GitHub/business-partner-demo/a
 - **Backend Health:** `http://localhost:8000/health`
 - **Architecture Diagram:** `file:///path/to/architecture-diagram.html`
 
+
+

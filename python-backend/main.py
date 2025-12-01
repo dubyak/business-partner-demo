@@ -107,36 +107,6 @@ async def chat(request: ChatRequest):
     session_id = request.session_id or f"session-{int(time.time())}"
     user_id = request.user_id or "demo-user"
 
-    # Create Langfuse trace for this conversation turn
-    # Include state information in metadata for debugging
-    trace_metadata = {
-        "model": request.model, 
-        "architecture": "langgraph-multi-agent", 
-        "timestamp": time.time(),
-        "session_id": session_id,
-    }
-    
-    # Add existing state info to metadata if available (for debugging state persistence)
-    if existing_state:
-        trace_metadata["existing_state"] = {
-            "business_type": existing_state.get("business_type"),
-            "location": existing_state.get("location"),
-            "years_operating": existing_state.get("years_operating"),
-            "num_employees": existing_state.get("num_employees"),
-            "monthly_revenue": existing_state.get("monthly_revenue"),
-            "monthly_expenses": existing_state.get("monthly_expenses"),
-            "loan_purpose": existing_state.get("loan_purpose"),
-        }
-        print(f"[LANGFUSE] Trace metadata includes existing_state: {trace_metadata['existing_state']}")
-    
-    trace = langfuse.trace(
-        name="business-partner-conversation",
-        session_id=session_id,
-        user_id=user_id,
-        input=[msg.model_dump() for msg in request.messages],
-        metadata=trace_metadata,
-    )
-
     try:
         # Get or create conversation in database
         conversation = await get_or_create_conversation(user_id, session_id)
@@ -172,6 +142,36 @@ async def chat(request: ChatRequest):
                 print(f"[STATE] Loaded existing state from checkpoint for session {session_id}")
         except Exception as e:
             print(f"[STATE] No existing checkpoint found (new session): {e}")
+        
+        # Create Langfuse trace for this conversation turn
+        # Include state information in metadata for debugging
+        trace_metadata = {
+            "model": request.model, 
+            "architecture": "langgraph-multi-agent", 
+            "timestamp": time.time(),
+            "session_id": session_id,
+        }
+        
+        # Add existing state info to metadata if available (for debugging state persistence)
+        if existing_state:
+            trace_metadata["existing_state"] = {
+                "business_type": existing_state.get("business_type"),
+                "location": existing_state.get("location"),
+                "years_operating": existing_state.get("years_operating"),
+                "num_employees": existing_state.get("num_employees"),
+                "monthly_revenue": existing_state.get("monthly_revenue"),
+                "monthly_expenses": existing_state.get("monthly_expenses"),
+                "loan_purpose": existing_state.get("loan_purpose"),
+            }
+            print(f"[LANGFUSE] Trace metadata includes existing_state: {trace_metadata['existing_state']}")
+        
+        trace = langfuse.trace(
+            name="business-partner-conversation",
+            session_id=session_id,
+            user_id=user_id,
+            input=[msg.model_dump() for msg in request.messages],
+            metadata=trace_metadata,
+        )
         
         # Required tasks for onboarding phase
         required_tasks = [

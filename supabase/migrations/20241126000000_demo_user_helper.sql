@@ -51,3 +51,5 @@ $$;
 -- Grant execute permission to service role
 GRANT EXECUTE ON FUNCTION create_demo_user(UUID) TO service_role;
 
+
+
