@@ -66,16 +66,21 @@ def get_langfuse_client() -> Optional[Langfuse]:
             print(f"  - Environment: {environment}")
             print(f"  - Sample Rate: {sample_rate * 100:.1f}%")
             print(f"  - Enabled: {_langfuse_client.enabled}")
+            print(f"  - Secret Key: {'Set' if secret_key else 'NOT SET'}")
+            print(f"  - Public Key: {'Set' if public_key else 'NOT SET'}")
             
             # Perform non-blocking auth check in background thread
             def auth_check_async():
                 try:
-                    # Note: Langfuse SDK v3 doesn't have auth_check() in the same way
-                    # We'll verify by attempting a simple operation
-                    # For now, we'll just log that initialization succeeded
-                    print("[LANGFUSE] ✓ Client initialized successfully")
+                    # Test that the client can be used by creating a test trace
+                    # This will fail fast if credentials are invalid
+                    test_trace = _langfuse_client.trace(name="health-check", user_id="system")
+                    test_trace.update(output={"status": "ok"})
+                    _langfuse_client.flush()
+                    print("[LANGFUSE] ✓ Client initialized and verified successfully")
                 except Exception as e:
                     print(f"[LANGFUSE] ⚠️  Warning: Auth check failed: {e}")
+                    print(f"[LANGFUSE] ⚠️  Tracing may not work. Check your credentials.")
             
             # Run auth check in background to avoid blocking startup
             auth_thread = threading.Thread(target=auth_check_async, daemon=True)
@@ -86,6 +91,7 @@ def get_langfuse_client() -> Optional[Langfuse]:
             
         except Exception as e:
             print(f"[LANGFUSE] ✗ Error initializing client: {e}")
+            print(f"[LANGFUSE] ✗ Tracing will be disabled. Check your LANGFUSE_SECRET_KEY and LANGFUSE_PUBLIC_KEY environment variables.")
             _langfuse_client = None
         
         return _langfuse_client
