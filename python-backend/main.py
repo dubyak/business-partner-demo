@@ -87,7 +87,6 @@ def health_check():
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-@observe(name="business-partner-chat-request")
 async def chat(request: ChatRequest):
     """
     Main chat endpoint - compatible with existing frontend.
@@ -100,45 +99,40 @@ async def chat(request: ChatRequest):
     session_id = request.session_id or f"session-{int(time.time())}"
     user_id = request.user_id or "demo-user"
     
-    # Check if we should sample this request
-    if not should_sample():
-        # Still process the request, but don't trace it
-        return await _process_chat_request(request, session_id, user_id, start_time, trace=None)
-    
-    # Get Langfuse client for manual trace creation
-    langfuse = get_langfuse_client()
+    # Try to set up tracing, but don't fail if it doesn't work
     trace = None
-    
     try:
-        # Create root trace for this customer journey
-        # The @observe decorator will create a span, and we'll link it to this trace
-        if langfuse:
-            trace_metadata = get_trace_metadata(
-                user_id=user_id,
-                session_id=session_id,
-                flow_name="customer-journey",
-                model=request.model,
-                architecture="langgraph-multi-agent",
-            )
+        # Check if we should sample this request
+        if should_sample():
+            # Get Langfuse client for manual trace creation
+            langfuse = get_langfuse_client()
             
-            trace = langfuse.trace(
-                name="business-partner-conversation",
-                session_id=session_id,
-                user_id=user_id,
-                input=[msg.model_dump() for msg in request.messages],
-                metadata=trace_metadata,
-                tags=["customer-journey", "langgraph", "multi-agent"],
-            )
-            
-            # Update the current observation (created by @observe) with metadata
-            # The trace will automatically be linked via the @observe decorator context
-            langfuse_context.update_current_observation(
-                metadata=trace_metadata,
-                tags=["customer-journey", "langgraph", "multi-agent"],
-            )
-        
-        return await _process_chat_request(request, session_id, user_id, start_time, trace=trace)
+            # Create root trace for this customer journey
+            if langfuse:
+                trace_metadata = get_trace_metadata(
+                    user_id=user_id,
+                    session_id=session_id,
+                    flow_name="customer-journey",
+                    model=request.model,
+                    architecture="langgraph-multi-agent",
+                )
+                
+                trace = langfuse.trace(
+                    name="business-partner-conversation",
+                    session_id=session_id,
+                    user_id=user_id,
+                    input=[msg.model_dump() for msg in request.messages],
+                    metadata=trace_metadata,
+                    tags=["customer-journey", "langgraph", "multi-agent"],
+                )
+    except Exception as e:
+        # If tracing setup fails, log but continue without tracing
+        print(f"[LANGFUSE] Warning: Failed to set up tracing: {e}")
+        trace = None
     
+    # Process the request (with or without tracing)
+    try:
+        return await _process_chat_request(request, session_id, user_id, start_time, trace=trace)
     except Exception as e:
         # Log error to Langfuse if trace exists
         if trace:
@@ -150,7 +144,6 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 
-@observe(name="process-chat-request")
 async def _process_chat_request(
     request: ChatRequest,
     session_id: str,
@@ -173,9 +166,12 @@ async def _process_chat_request(
         
         # Update trace with conversation info
         if trace:
-            langfuse_context.update_current_observation(
-                metadata={"conversation_id": conversation_id}
-            )
+            try:
+                langfuse_context.update_current_observation(
+                    metadata={"conversation_id": conversation_id}
+                )
+            except:
+                pass
         
         # Convert request messages to LangChain format
         langchain_messages = []
@@ -361,53 +357,65 @@ async def _process_chat_request(
         raise
 
 
-@observe(name="get-or-create-conversation")
 async def _get_or_create_conversation_traced(user_id: str, session_id: str) -> Dict:
-    """Get or create conversation with tracing."""
-    langfuse_context.update_current_observation(
-        input={"user_id": user_id, "session_id": session_id}
-    )
+    """Get or create conversation with optional tracing."""
+    try:
+        langfuse_context.update_current_observation(
+            input={"user_id": user_id, "session_id": session_id}
+        )
+    except:
+        pass
     conversation = await get_or_create_conversation(user_id, session_id)
-    langfuse_context.update_current_observation(
-        output={"conversation_id": conversation.get('id')}
-    )
+    try:
+        langfuse_context.update_current_observation(
+            output={"conversation_id": conversation.get('id')}
+        )
+    except:
+        pass
     return conversation
 
 
-@observe(name="load-existing-state")
 async def _load_existing_state_traced(config: Dict, session_id: str) -> Optional[Dict]:
-    """Load existing state from checkpoint with tracing."""
+    """Load existing state from checkpoint with optional tracing."""
     try:
         state_snapshot = graph.get_state(config)
         if state_snapshot and state_snapshot.values:
             existing_state = state_snapshot.values
             print(f"[STATE] Loaded existing state from checkpoint for session {session_id}")
-            langfuse_context.update_current_observation(
-                output={
-                    "state_loaded": True,
-                    "business_type": existing_state.get("business_type"),
-                    "phase": existing_state.get("phase"),
-                }
-            )
+            try:
+                langfuse_context.update_current_observation(
+                    output={
+                        "state_loaded": True,
+                        "business_type": existing_state.get("business_type"),
+                        "phase": existing_state.get("phase"),
+                    }
+                )
+            except:
+                pass
             return existing_state
     except Exception as e:
         print(f"[STATE] No existing checkpoint found (new session): {e}")
-        langfuse_context.update_current_observation(
-            output={"state_loaded": False, "reason": str(e)}
-        )
+        try:
+            langfuse_context.update_current_observation(
+                output={"state_loaded": False, "reason": str(e)}
+            )
+        except:
+            pass
     return None
 
 
-@observe(name="invoke-graph")
 async def _invoke_graph_traced(initial_state: BusinessPartnerState, config: Dict) -> Dict:
-    """Invoke LangGraph with tracing."""
-    langfuse_context.update_current_observation(
-        input={
-            "phase": initial_state.get("phase"),
-            "business_type": initial_state.get("business_type"),
-            "message_count": len(initial_state.get("messages", [])),
-        }
-    )
+    """Invoke LangGraph with optional tracing."""
+    try:
+        langfuse_context.update_current_observation(
+            input={
+                "phase": initial_state.get("phase"),
+                "business_type": initial_state.get("business_type"),
+                "message_count": len(initial_state.get("messages", [])),
+            }
+        )
+    except:
+        pass
     
     try:
         result = graph.invoke(initial_state, config=config)
@@ -418,43 +426,60 @@ async def _invoke_graph_traced(initial_state: BusinessPartnerState, config: Dict
             if final_state_snapshot and final_state_snapshot.values:
                 persisted_state = final_state_snapshot.values
                 print(f"[STATE] ✓ State persisted after graph invocation")
-                langfuse_context.update_current_observation(
-                    metadata={
-                        "state_persisted": True,
-                        "final_phase": persisted_state.get("phase"),
-                    }
-                )
+                try:
+                    langfuse_context.update_current_observation(
+                        metadata={
+                            "state_persisted": True,
+                            "final_phase": persisted_state.get("phase"),
+                        }
+                    )
+                except:
+                    pass
         except Exception as e:
             print(f"[STATE] ⚠️  Warning: Could not verify state persistence: {e}")
-            langfuse_context.update_current_observation(
-                metadata={"state_persisted": False, "error": str(e)}
-            )
+            try:
+                langfuse_context.update_current_observation(
+                    metadata={"state_persisted": False, "error": str(e)}
+                )
+            except:
+                pass
         
-        langfuse_context.update_current_observation(
-            output={
-                "agents_called": _extract_agents_called(result),
-                "final_phase": result.get("phase"),
-            }
-        )
+        try:
+            langfuse_context.update_current_observation(
+                output={
+                    "agents_called": _extract_agents_called(result),
+                    "final_phase": result.get("phase"),
+                }
+            )
+        except:
+            pass
         return result
     except Exception as e:
-        langfuse_context.update_current_observation(
-            level="ERROR",
-            output={"error": str(e), "error_type": type(e).__name__}
-        )
+        try:
+            langfuse_context.update_current_observation(
+                level="ERROR",
+                output={"error": str(e), "error_type": type(e).__name__}
+            )
+        except:
+            pass
         raise
 
 
-@observe(name="save-messages")
 async def _save_messages_traced(conversation_id: str, messages: List[Any]) -> None:
-    """Save messages to database with tracing."""
-    langfuse_context.update_current_observation(
-        input={"conversation_id": conversation_id, "message_count": len(messages)}
-    )
+    """Save messages to database with optional tracing."""
+    try:
+        langfuse_context.update_current_observation(
+            input={"conversation_id": conversation_id, "message_count": len(messages)}
+        )
+    except:
+        pass
     await save_messages(conversation_id, messages)
-    langfuse_context.update_current_observation(
-        output={"messages_saved": len(messages)}
-    )
+    try:
+        langfuse_context.update_current_observation(
+            output={"messages_saved": len(messages)}
+        )
+    except:
+        pass
 
 
 def _extract_agents_called(result: Dict) -> List[str]:
