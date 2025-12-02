@@ -107,6 +107,9 @@ async function getSystemPrompt() {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Business Partner API is running' });
@@ -127,10 +130,16 @@ app.post('/api/chat', async (req, res) => {
             return res.status(400).json({ error: 'Invalid request: messages array required' });
         }
 
-        // Check for API key
-        const apiKey = process.env.ANTHROPIC_API_KEY;
+        // Determine provider based on model name or explicit provider param
+        const provider = req.body.provider || (model && model.includes('gpt') ? 'openai' : 'anthropic');
+        const apiKey = provider === 'openai' 
+            ? process.env.OPENAI_API_KEY 
+            : process.env.ANTHROPIC_API_KEY;
+        
         if (!apiKey) {
-            return res.status(500).json({ error: 'Server configuration error: API key not set' });
+            return res.status(500).json({ 
+                error: `Server configuration error: ${provider.toUpperCase()} API key not set` 
+            });
         }
 
         // Get system prompt from Langfuse or fallback (allow override for testing)
@@ -193,25 +202,48 @@ app.post('/api/chat', async (req, res) => {
             }
         }
 
-        // Call Anthropic API
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-                model: model || 'claude-sonnet-4-20250514',
-                max_tokens: max_tokens || 1024,
-                system: systemPrompt,
-                messages: messages
-            })
-        });
+        // Call appropriate API based on provider
+        let response;
+        if (provider === 'openai') {
+            // OpenAI API format
+            const openaiMessages = [
+                { role: 'system', content: systemPrompt },
+                ...messages
+            ];
+            
+            response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model || 'gpt-4o',
+                    max_tokens: max_tokens || 1024,
+                    messages: openaiMessages
+                })
+            });
+        } else {
+            // Anthropic API format
+            response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    model: model || 'claude-sonnet-4-20250514',
+                    max_tokens: max_tokens || 1024,
+                    system: systemPrompt,
+                    messages: messages
+                })
+            });
+        }
 
         if (!response.ok) {
             const errorData = await response.text();
-            console.error('Anthropic API error:', response.status, errorData);
+            console.error(`${provider.toUpperCase()} API error:`, response.status, errorData);
             
             // Log error to Langfuse
             if (generation) {
@@ -230,18 +262,33 @@ app.post('/api/chat', async (req, res) => {
         const data = await response.json();
         const endTime = Date.now();
 
+        // Normalize response format (OpenAI vs Anthropic)
+        let normalizedData;
+        if (provider === 'openai') {
+            normalizedData = {
+                content: data.choices?.[0]?.message?.content ? [{ text: data.choices[0].message.content }] : [],
+                usage: data.usage,
+                stop_reason: data.choices?.[0]?.finish_reason
+            };
+        } else {
+            normalizedData = data;
+        }
+        
+        // Store normalizedData for LangSmith update below
+
         // Log successful response to Langfuse
         if (generation) {
             generation.end({
-                output: data.content,
+                output: normalizedData.content,
                 usage: {
-                    input: data.usage?.input_tokens || 0,
-                    output: data.usage?.output_tokens || 0,
-                    total: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+                    input: normalizedData.usage?.input_tokens || normalizedData.usage?.prompt_tokens || 0,
+                    output: normalizedData.usage?.output_tokens || normalizedData.usage?.completion_tokens || 0,
+                    total: (normalizedData.usage?.input_tokens || normalizedData.usage?.prompt_tokens || 0) + 
+                           (normalizedData.usage?.output_tokens || normalizedData.usage?.completion_tokens || 0)
                 },
                 metadata: {
                     latencyMs: endTime - startTime,
-                    stopReason: data.stop_reason
+                    stopReason: normalizedData.stop_reason
                 }
             });
         }
@@ -249,7 +296,7 @@ app.post('/api/chat', async (req, res) => {
         // Update trace with output
         if (trace) {
             trace.update({
-                output: data.content
+                output: normalizedData.content
             });
         }
 
@@ -258,15 +305,16 @@ app.post('/api/chat', async (req, res) => {
             try {
                 await langsmithClient.updateRun(langsmithRunId, {
                     outputs: {
-                        content: data.content,
-                        stop_reason: data.stop_reason
+                        content: normalizedData.content,
+                        stop_reason: normalizedData.stop_reason
                     },
                     end_time: new Date().toISOString(),
                     extra: {
                         usage: {
-                            input_tokens: data.usage?.input_tokens || 0,
-                            output_tokens: data.usage?.output_tokens || 0,
-                            total_tokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+                            input_tokens: normalizedData.usage?.input_tokens || normalizedData.usage?.prompt_tokens || 0,
+                            output_tokens: normalizedData.usage?.output_tokens || normalizedData.usage?.completion_tokens || 0,
+                            total_tokens: (normalizedData.usage?.input_tokens || normalizedData.usage?.prompt_tokens || 0) + 
+                                         (normalizedData.usage?.output_tokens || normalizedData.usage?.completion_tokens || 0)
                         },
                         latency_ms: endTime - startTime
                     }
@@ -280,7 +328,8 @@ app.post('/api/chat', async (req, res) => {
         // Finalize trace
         await langfuse.flushAsync();
 
-        res.json(data);
+        // Return normalized format
+        res.json(normalizedData);
 
     } catch (error) {
         console.error('Error in /api/chat:', error);
@@ -317,7 +366,18 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
+// Serve frontend for all non-API routes (SPA routing)
+app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    // Serve index.html for all other routes
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log(`Frontend: http://localhost:${PORT}/`);
 });

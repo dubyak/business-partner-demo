@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="pageTitle">Business Partner</title>
+    <style>
+        :root {
+            /* Android App Design System Colors */
+            --primary-teal: #4DB8B8;
+            --primary-orange: #E67E4D;
+            --background-cream: #FFF9F5;
+            --background-light-peach: #FFF0E6;
+            --text-primary: #2D3436;
+            --text-secondary: #636E72;
+            --success-green: #00B894;
+            --error-red: #D63031;
+            --border-light: #DFE6E9;
+            --white: #FFFFFF;
+
+            /* Spacing */
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+
+            /* Border Radius */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --radius-full: 9999px;
+
+            /* Shadows */
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--background-cream);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            background: var(--white);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, var(--primary-teal) 0%, #3A9999 100%);
+            color: white;
+            padding: var(--spacing-lg);
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .chat-header-title {
+            flex: 1;
+        }
+
+        .language-selector {
+            position: absolute;
+            right: var(--spacing-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .language-selector label {
+            font-size: 12px;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .language-selector select {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: var(--radius-sm);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .language-selector select:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .language-selector select:focus {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .language-selector select option {
+            background: var(--primary-teal);
+            color: white;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-lg);
+            background: var(--background-cream);
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: var(--spacing-lg);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.assistant {
+            justify-content: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-teal) 0%, var(--primary-orange) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            flex-shrink: 0;
+            font-weight: 600;
+        }
+
+        .message.assistant .message-avatar {
+            margin-right: var(--spacing-md);
+        }
+
+        .message.user .message-avatar {
+            margin-left: var(--spacing-md);
+            order: 2;
+            background: linear-gradient(135deg, #d0d0d0 0%, #b0b0b0 100%);
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            line-height: 1.6;
+            font-size: 15px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .message.assistant .message-content {
+            background: var(--white);
+            color: var(--text-primary);
+            border-bottom-left-radius: var(--radius-sm);
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, var(--background-light-peach) 0%, #FFE5D9 100%);
+            color: var(--text-primary);
+            border-bottom-right-radius: var(--radius-sm);
+        }
+
+        .message-content img {
+            max-width: 100%;
+            border-radius: var(--radius-sm);
+            margin-top: var(--spacing-sm);
+            display: block;
+        }
+
+        .input-container {
+            padding: var(--spacing-md);
+            background: var(--white);
+            border-top: 1px solid var(--border-light);
+            display: flex;
+            gap: var(--spacing-md);
+            align-items: center;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .input-container.drag-over {
+            background: var(--background-cream);
+            border-top: 2px dashed var(--primary-teal);
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-container.drag-over::before {
+            content: 'Drop photos here';
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary-teal);
+            color: var(--white);
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 10;
+            box-shadow: var(--shadow-md);
+        }
+
+        .attachment-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            background: var(--background-cream);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            color: var(--primary-teal);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .attachment-btn:hover {
+            background: var(--primary-teal);
+            color: var(--white);
+            transform: scale(1.05);
+        }
+
+        .audio-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            background: var(--background-cream);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 22px;
+            color: var(--primary-orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .audio-btn:hover:not(:disabled) {
+            background: var(--primary-orange);
+            color: var(--white);
+            transform: scale(1.05);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .audio-btn.recording {
+            background: var(--primary-orange);
+            color: var(--white);
+            animation: pulse 1.2s infinite;
+        }
+
+        .audio-btn:disabled {
+            cursor: not-allowed;
+            color: var(--border-light);
+            background: var(--background-cream);
+            opacity: 0.7;
+            transform: none;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(230, 126, 77, 0.5); }
+            70% { box-shadow: 0 0 0 8px rgba(230, 126, 77, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(230, 126, 77, 0); }
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #messageInput {
+            width: 100%;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: 2px solid var(--border-light);
+            background: var(--background-cream);
+            border-radius: var(--radius-full);
+            font-size: 15px;
+            outline: none;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        #messageInput:focus {
+            border-color: var(--primary-teal);
+            background: var(--white);
+        }
+
+        #messageInput::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            background: var(--primary-orange);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: #D5703D;
+            transform: scale(1.05);
+            box-shadow: var(--shadow-md);
+        }
+
+        .send-btn:disabled {
+            background: var(--border-light);
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-md) var(--spacing-lg);
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary-orange);
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .image-preview {
+            display: inline-block;
+            margin-top: var(--spacing-sm);
+            max-width: 200px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .image-preview img {
+            width: 100%;
+            display: block;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+            margin-top: var(--spacing-sm);
+        }
+
+        .quick-action-btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--white);
+            border: 2px solid var(--primary-orange);
+            color: var(--primary-orange);
+            border-radius: var(--radius-full);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-action-btn:hover {
+            background: var(--primary-orange);
+            color: var(--white);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Loan Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .loan-modal {
+            background: var(--white);
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUpModal 0.3s ease;
+            box-shadow: var(--shadow-lg);
+        }
+
+        @keyframes slideUpModal {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-lg);
+            border-bottom: 1px solid var(--border-light);
+            position: sticky;
+            top: 0;
+            background: var(--white);
+            z-index: 10;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: var(--spacing-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: var(--background-cream);
+            color: var(--text-primary);
+        }
+
+        .modal-content {
+            padding: var(--spacing-lg);
+        }
+
+        .amount-display {
+            font-size: 40px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: var(--spacing-lg) 0;
+            text-align: center;
+        }
+
+        .slider-container {
+            margin: var(--spacing-xl) 0;
+        }
+
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(to right, var(--primary-teal) 0%, var(--primary-orange) 100%);
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--primary-orange);
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            border: 3px solid var(--white);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--primary-orange);
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            border: 3px solid var(--white);
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: var(--spacing-sm);
+            font-weight: 500;
+        }
+
+        .payment-schedule {
+            margin: var(--spacing-lg) 0;
+        }
+
+        .section-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .payment-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-sm);
+            background: var(--background-cream);
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .payment-option:hover {
+            border-color: var(--primary-orange);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .payment-option.selected {
+            background: var(--background-light-peach);
+            border-color: var(--primary-orange);
+            box-shadow: var(--shadow-md);
+        }
+
+        .payment-amount {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .payment-frequency {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .payment-count {
+            text-align: right;
+        }
+
+        .payment-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .payment-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .details-list {
+            margin: var(--spacing-lg) 0;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: var(--spacing-sm) 0;
+            font-size: 14px;
+        }
+
+        .detail-label {
+            color: var(--text-secondary);
+        }
+
+        .detail-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .detail-row.total {
+            border-top: 2px solid var(--border-light);
+            padding-top: var(--spacing-md);
+            margin-top: var(--spacing-md);
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .checkbox-container input[type="checkbox"] {
+            margin-top: 3px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--primary-orange);
+        }
+
+        .checkbox-label {
+            color: var(--text-secondary);
+        }
+
+        .checkbox-label a {
+            color: var(--primary-orange);
+            text-decoration: underline;
+        }
+
+        .btn {
+            width: 100%;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: none;
+            border-radius: var(--radius-full);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: var(--primary-orange);
+            color: var(--white);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-primary:hover {
+            background: #D5703D;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border-light);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-md);
+            color: var(--text-primary);
+        }
+
+        .info-text {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .info-text strong {
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .modal-screen {
+            display: none;
+        }
+
+        .modal-screen.active {
+            display: block;
+        }
+
+        .success-icon {
+            font-size: 64px;
+            text-align: center;
+            margin: var(--spacing-lg) 0;
+        }
+
+        .success-message {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .success-subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-xl);
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="chat-header-title" id="headerTitle">Business Partner</div>
+            <div class="language-selector">
+                <label for="languageSelect">🌐</label>
+                <select id="languageSelect" title="Select language">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="messages-container" id="messagesContainer">
+            <div class="message assistant" id="initialMessage">
+                <div class="message-avatar">BP</div>
+                <div class="message-content" id="initialMessageContent">
+                    <!-- Welcome message will be set by JavaScript based on selected language -->
+                </div>
+            </div>
+        </div>
+
+        <div class="input-container">
+            <button class="attachment-btn" id="attachBtn" title="Attach image">
+                <span>+</span>
+            </button>
+            <input type="file" id="fileInput" accept="image/*" />
+            <button class="audio-btn" id="audioBtn" title="Hold to speak">
+                <span>🎤</span>
+            </button>
+            <div class="input-wrapper">
+                <input type="text" id="messageInput" placeholder="Type a message..." />
+            </div>
+            <button class="send-btn" id="sendBtn">
+                <span>▶</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Loan Modal -->
+    <div class="modal-overlay" id="loanModal">
+        <div class="loan-modal">
+            <!-- Screen 1: Choose Amount -->
+            <div class="modal-screen active" id="screen-amount">
+                <div class="modal-header">
+                    <h2 class="modal-title">Choose loan amount</h2>
+                    <button class="close-btn" onclick="closeLoanModal()">✕</button>
+                </div>
+                <div class="modal-content">
+                    <div class="amount-display" id="displayAmount">$5,000</div>
+
+                    <div class="slider-container">
+                        <input type="range" min="1000" max="10000" value="5000" step="500" class="slider" id="amountSlider">
+                        <div class="slider-labels">
+                            <span>$1,000</span>
+                            <span>$10,000</span>
+                        </div>
+                    </div>
+
+                    <div class="payment-schedule">
+                        <label class="section-label">Choose payment schedule</label>
+
+                        <div class="payment-option" data-payments="1">
+                            <div>
+                                <div class="payment-amount">$5,550</div>
+                                <div class="payment-frequency">45 days</div>
+                            </div>
+                            <div class="payment-count">
+                                <div class="payment-number">1</div>
+                                <div class="payment-label">Payment</div>
+                            </div>
+                        </div>
+
+                        <div class="payment-option selected" data-payments="3">
+                            <div>
+                                <div class="payment-amount">$1,850</div>
+                                <div class="payment-frequency">every 15 days</div>
+                            </div>
+                            <div class="payment-count">
+                                <div class="payment-number">3</div>
+                                <div class="payment-label">Payments</div>
+                            </div>
+                        </div>
+
+                        <div class="payment-option" data-payments="6">
+                            <div>
+                                <div class="payment-amount">$975</div>
+                                <div class="payment-frequency">weekly</div>
+                            </div>
+                            <div class="payment-count">
+                                <div class="payment-number">6</div>
+                                <div class="payment-label">Payments</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="showModalScreen('screen-terms')">Continue</button>
+                </div>
+            </div>
+
+            <!-- Screen 2: Accept Terms -->
+            <div class="modal-screen" id="screen-terms">
+                <div class="modal-header">
+                    <h2 class="modal-title">Review & Accept</h2>
+                    <button class="close-btn" onclick="closeLoanModal()">✕</button>
+                </div>
+                <div class="modal-content">
+                    <h3 class="section-title">Loan Details</h3>
+
+                    <div class="details-list">
+                        <div class="detail-row">
+                            <span class="detail-label">Loan amount</span>
+                            <span class="detail-value">$5,000</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Processing fee</span>
+                            <span class="detail-value">$150</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Interest (11% flat)</span>
+                            <span class="detail-value">$550</span>
+                        </div>
+                        <div class="detail-row total">
+                            <span class="detail-label">Total to repay</span>
+                            <span class="detail-value">$5,550</span>
+                        </div>
+                    </div>
+
+                    <div class="details-list">
+                        <div class="detail-row">
+                            <span class="detail-label">Payment schedule</span>
+                            <span class="detail-value">3 payments of $1,850</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Frequency</span>
+                            <span class="detail-value">Every 15 days</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Term</span>
+                            <span class="detail-value">45 days</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: var(--spacing-xl);">
+                        <p class="info-text">
+                            <strong>Late payment fee</strong>
+                            If you don't pay before the due date, you'll be charged an additional fee of 15% of the amount due.
+                        </p>
+
+                        <p class="info-text">
+                            <strong>Identity verification</strong>
+                            By accepting, you authorize us to verify your identity and credit information.
+                        </p>
+                    </div>
+
+                    <div style="margin-top: var(--spacing-lg);">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="terms1">
+                            <label for="terms1" class="checkbox-label">
+                                I agree to the <a href="#" onclick="return false;">Terms and Conditions</a> and the terms of credit information.
+                            </label>
+                        </div>
+
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="terms2">
+                            <label for="terms2" class="checkbox-label">
+                                I accept the <a href="#" onclick="return false;">Privacy Policy</a> and authorize the use of communications about products and services.
+                            </label>
+                        </div>
+
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="terms3">
+                            <label for="terms3" class="checkbox-label">
+                                I expressly authorize the platform to process this credit application and manage the loan.
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" style="margin-top: var(--spacing-xl);" onclick="acceptLoan()">Accept loan</button>
+                </div>
+            </div>
+
+            <!-- Screen 3: Success -->
+            <div class="modal-screen" id="screen-success">
+                <div class="modal-header">
+                    <h2 class="modal-title">Loan Approved!</h2>
+                    <button class="close-btn" onclick="closeLoanModal()">✕</button>
+                </div>
+                <div class="modal-content">
+                    <div class="success-icon">🎉</div>
+                    <h3 class="success-message">Congratulations!</h3>
+                    <p class="success-subtitle">Your loan has been approved and funds will arrive in your account within 24 hours.</p>
+
+                    <div class="amount-display" style="margin: var(--spacing-xl) 0;">$5,000</div>
+
+                    <div class="details-list">
+                        <div class="detail-row">
+                            <span class="detail-label">First payment due</span>
+                            <span class="detail-value">15 days from today</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Payment amount</span>
+                            <span class="detail-value">$1,850</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" style="margin-top: var(--spacing-xl);" onclick="closeLoanModalWithMessage()">Start conversation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Generate or retrieve session ID for tracking
+        function getSessionId() {
+            let sessionId = localStorage.getItem('business-partner-session-id');
+            if (!sessionId) {
+                sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                localStorage.setItem('business-partner-session-id', sessionId);
+            }
+            return sessionId;
+        }
+
+        const SESSION_ID = getSessionId();
+        console.log('Session ID:', SESSION_ID);
+
+        // System state
+        let conversationHistory = [];
+        let userProfile = {
+            hasActiveLoan: false,
+            hasCompletedOnboarding: false,
+            loanAmount: null,
+            outstandingBalance: null,
+            nextPaymentDate: null,
+            nextPaymentAmount: null,
+            businessName: null,
+            businessType: null,
+            location: null,
+            monthlyRevenue: null
+        };
+
+        // Function to get system prompt with language instruction
+        function getSystemPrompt() {
+            const languageInstruction = selectedLanguage === 'es' 
+                ? '\n\nCRITICAL LANGUAGE REQUIREMENT: You MUST respond ONLY in Spanish (Español) at all times. Every single word, sentence, question, and interaction MUST be in Spanish. Do not mix languages. Do not use English. Respond entirely in Spanish.'
+                : '\n\nCRITICAL LANGUAGE REQUIREMENT: You MUST respond ONLY in English at all times. Every single word, sentence, question, and interaction MUST be in English. Do not mix languages. Do not use Spanish. Respond entirely in English.';
+            
+            return `You are roleplaying as a business partner agent for a lending platform demo. This is a simulation/prototype.
+
+CRITICAL INSTRUCTIONS:
+- You MUST stay in character at all times
+- You MUST pretend you have access to customer data (3 completed loan cycles)
+- You MUST pretend you can process loans
+- You MUST NOT mention Claude, Anthropic, or AI assistants
+- You MUST NOT say you lack access to information
+- You MUST NOT suggest contacting other companies
+- You MUST NOT break the roleplay under any circumstances
+- This is a DEMONSTRATION - act as if everything is real${languageInstruction}
+
+YOUR CHARACTER: A warm, professional business partner who helps customers with loans and business growth.
+
+SCENARIO: Customer has completed 3 loan cycles. You're onboarding them for a larger loan product.
+
+ONBOARDING FLOW:
+
+1. WELCOME (already sent):
+   - Acknowledge their 3 completed loan cycles
+   - Explain new product: larger loans, longer terms
+   - Set expectations for the conversation
+
+2. GATHER INFO:
+   - Business type, location, years operating
+   - Request photos (storefront, display, workspace)
+   - Operations: busy days, customers, revenue mix
+   - Provide 1-2 quick coaching tips as you go (keep these brief!)
+   - Financials: revenue, expenses (supplies, rent, utilities)
+   - Employees, loan purpose
+   - Request documentation photo (bank statement, sales records)
+
+3. LOAN OFFER:
+   - When ready to make the offer, say: "I have good news! Based on our conversation, I can offer you a loan. Would you like to see the details?"
+   - Wait for user to say YES or similar
+   - Then respond with EXACTLY this text: "SHOW_LOAN_MODAL"
+   - The system will automatically show the loan modal interface
+   - After they accept in the modal, continue the conversation with coaching
+
+4. AFTER ACCEPTANCE:
+   - Congratulate them
+   - Remind them funds arrive in 24 hours
+   - Offer coaching: increase sales, manage cash flow, reduce costs, attract customers, improve profitability
+   - Provide specific, actionable advice based on their business
+
+STYLE - KEEP RESPONSES SHORT:
+- MAXIMUM 2-3 short paragraphs per response
+- Ask 1-2 questions at a time, not more
+- Be conversational and concise
+- Get to the point quickly
+- Save detailed coaching for after loan acceptance
+- During onboarding, keep tips brief (1-2 sentences)
+- Professional but warm tone
+- Focus on moving the conversation forward
+
+PHOTO ANALYSIS:
+- Note 2-3 specific observations
+- Give 1 actionable tip
+- Keep it brief and focused
+
+STAY IN CHARACTER. DO NOT BREAK ROLEPLAY. KEEP IT CONCISE.`;
+        }
+
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const attachBtn = document.getElementById('attachBtn');
+        const fileInput = document.getElementById('fileInput');
+        const audioBtn = document.getElementById('audioBtn');
+
+        let pendingImages = [];
+        let speechRecognition = null;
+        let isRecording = false;
+        let userStoppedRecording = false; // Track if user explicitly stopped
+        let selectedLanguage = 'en'; // Default to English
+        let defaultPlaceholder = messageInput.placeholder;
+        
+        // Language-specific placeholders
+        const placeholders = {
+            en: 'Type a message...',
+            es: 'Escribe un mensaje...'
+        };
+        
+        // Language-specific welcome messages
+        const welcomeMessages = {
+            en: `Welcome back! 👋 Congratulations on completing 3 successful loan cycles with us—that's a significant milestone! 🎉<br><br>
+                    You've opted into our new experience, designed specifically for small business owners like you. I'm your AI business partner, and I'm here to work with you 24/7 to:<br><br>
+                    • Get you access to better-fit credit products tailored to your business needs<br>
+                    • Provide personalized business coaching to help you grow<br>
+                    • Support you throughout your entire credit journey<br><br>
+                    My goal is simple: to help you grow your business. Let's get you onboarded and on your way to a new loan offer.<br><br>
+                    To get started, I'd love to learn more about your business. What type of business do you run, and where are you located?`,
+            es: `¡Bienvenido de nuevo! 👋 ¡Felicitaciones por completar 3 ciclos de préstamos exitosos con nosotros—ese es un logro significativo! 🎉<br><br>
+                    Te has inscrito en nuestra nueva experiencia, diseñada específicamente para pequeños empresarios como tú. Soy tu socio comercial de IA, y estoy aquí para trabajar contigo 24/7 para:<br><br>
+                    • Obtener acceso a productos de crédito mejor adaptados a las necesidades de tu negocio<br>
+                    • Proporcionar coaching empresarial personalizado para ayudarte a crecer<br>
+                    • Apoyarte durante todo tu viaje crediticio<br><br>
+                    Mi objetivo es simple: ayudarte a hacer crecer tu negocio. Vamos a inscribirte y encaminarte hacia una nueva oferta de préstamo.<br><br>
+                    Para comenzar, me encantaría conocer más sobre tu negocio. ¿Qué tipo de negocio tienes y dónde estás ubicado?`
+        };
+        
+        // Language-specific page titles
+        const pageTitles = {
+            en: "Business Partner",
+            es: "Socio Comercial"
+        };
+
+        // Language selector
+        const languageSelect = document.getElementById('languageSelect');
+        
+        // Initialize with default language
+        function initializeLanguage() {
+            updateLanguage(selectedLanguage);
+        }
+        
+        function updateLanguage(lang) {
+            selectedLanguage = lang;
+            languageSelect.value = lang;
+            
+            // Update placeholder
+            messageInput.placeholder = placeholders[lang];
+            defaultPlaceholder = placeholders[lang];
+            
+            // Update speech recognition language
+            if (speechRecognition) {
+                speechRecognition.lang = lang === 'es' ? 'es-ES' : 'en-US';
+            }
+            
+            // Update page title
+            document.title = pageTitles[lang];
+            
+            // Update header title
+            const headerTitle = document.querySelector('.chat-header-title');
+            if (headerTitle) {
+                headerTitle.textContent = pageTitles[lang];
+            }
+            
+            // Update welcome message if it exists and conversation hasn't started
+            const initialMessage = document.getElementById('initialMessage');
+            const initialMessageContent = document.getElementById('initialMessageContent');
+            if (initialMessage && initialMessageContent && conversationHistory.length === 0) {
+                initialMessageContent.innerHTML = welcomeMessages[lang];
+            }
+        }
+        
+        languageSelect.addEventListener('change', (e) => {
+            const newLang = e.target.value;
+            if (newLang !== selectedLanguage) {
+                updateLanguage(newLang);
+                // If conversation has started, add a note that language changed
+                if (conversationHistory.length > 1) {
+                    const langMsg = newLang === 'es' 
+                        ? 'He cambiado el idioma a español. Continuaré respondiendo en español.'
+                        : 'I\'ve switched to English. I\'ll continue responding in English.';
+                    addMessage('assistant', langMsg);
+                    conversationHistory.push({
+                        role: "assistant",
+                        content: langMsg
+                    });
+                }
+            }
+        });
+        
+        // Initialize - start with empty conversation history
+        // Agent will handle the first greeting naturally
+        
+        // Initialize language settings (this will also set the welcome message)
+        initializeLanguage();
+        
+        // Set initial welcome message based on default language
+        const initialMessageContent = document.getElementById('initialMessageContent');
+        if (initialMessageContent) {
+            initialMessageContent.innerHTML = welcomeMessages[selectedLanguage];
+        }
+
+        // Helper function to process files
+        function processFiles(files) {
+            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) {
+                return;
+            }
+
+            imageFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    pendingImages.push(event.target.result);
+                    showImagePreview(event.target.result);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Event listeners
+        attachBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            processFiles(e.target.files);
+            fileInput.value = '';
+        });
+
+        // Drag and drop handlers
+        const inputContainer = document.querySelector('.input-container');
+        
+        inputContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            inputContainer.classList.add('drag-over');
+        });
+
+        inputContainer.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Only remove drag-over if we're leaving the container itself
+            if (!inputContainer.contains(e.relatedTarget)) {
+                inputContainer.classList.remove('drag-over');
+            }
+        });
+
+        inputContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            inputContainer.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        });
+
+        // Prevent default drag behavior on the entire page to allow dropping
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+        });
+
+        sendBtn.addEventListener('click', sendMessage);
+        audioBtn.addEventListener('click', toggleVoiceRecording);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        initVoiceInput();
+
+        function initVoiceInput() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                audioBtn.disabled = true;
+                audioBtn.title = 'Voice input is not supported in this browser';
+                return;
+            }
+
+            speechRecognition = new SpeechRecognition();
+            speechRecognition.lang = selectedLanguage === 'es' ? 'es-ES' : 'en-US';
+            speechRecognition.interimResults = true;
+            speechRecognition.continuous = true; // Keep listening during pauses
+            speechRecognition.maxAlternatives = 1;
+            let finalTranscript = '';
+
+            speechRecognition.onstart = () => {
+                finalTranscript = '';
+                isRecording = true;
+                userStoppedRecording = false; // Reset flag when starting
+                audioBtn.classList.add('recording');
+                audioBtn.title = 'Listening... tap to stop';
+                audioBtn.innerHTML = '<span>●</span>';
+                messageInput.placeholder = selectedLanguage === 'es' 
+                    ? 'Escuchando...'
+                    : 'Listening...';
+                messageInput.value = '';
+            };
+
+            speechRecognition.onresult = (event) => {
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript + ' ';
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                messageInput.value = (finalTranscript + interimTranscript).trim();
+            };
+
+            speechRecognition.onerror = (event) => {
+                console.error('Voice input error:', event.error);
+                
+                // Only stop on critical errors (not "no-speech" which is normal during pauses)
+                if (event.error === 'no-speech') {
+                    // This is normal - just restart if we're still recording
+                    if (isRecording && !userStoppedRecording) {
+                        setTimeout(() => {
+                            try {
+                                speechRecognition.start();
+                            } catch (e) {
+                                // Already started or other issue, ignore
+                            }
+                        }, 100);
+                    }
+                    return;
+                }
+                
+                // For other errors, actually stop
+                stopVoiceRecording(true);
+                if (event.error !== 'aborted') {
+                    alert('Voice input error. Please check your microphone permissions and try again.');
+                }
+            };
+
+            speechRecognition.onend = () => {
+                // Auto-restart if user didn't explicitly stop and we're still in recording mode
+                if (isRecording && !userStoppedRecording) {
+                    setTimeout(() => {
+                        try {
+                            speechRecognition.start();
+                        } catch (error) {
+                            // If restart fails, actually stop recording
+                            if (error.name !== 'InvalidStateError') {
+                                stopVoiceRecording(false);
+                            }
+                        }
+                    }, 100);
+                } else {
+                    // User stopped or we hit an error, clean up
+                    stopVoiceRecording(false);
+                }
+            };
+        }
+
+        function toggleVoiceRecording() {
+            if (!speechRecognition) return;
+
+            if (isRecording) {
+                // User explicitly stopping
+                userStoppedRecording = true;
+                speechRecognition.stop();
+            } else {
+                userStoppedRecording = false;
+                try {
+                    speechRecognition.start();
+                } catch (error) {
+                    if (error.message && error.message.includes('started')) {
+                        speechRecognition.stop();
+                        return;
+                    }
+                    console.error('Voice input start error:', error);
+                    alert('Unable to access the microphone. Please try again.');
+                }
+            }
+        }
+
+        function stopVoiceRecording(isError) {
+            isRecording = false;
+            userStoppedRecording = false; // Reset for next time
+            audioBtn.classList.remove('recording');
+            audioBtn.title = 'Tap to start voice input';
+            audioBtn.innerHTML = '<span>🎤</span>';
+            messageInput.placeholder = defaultPlaceholder;
+
+            if (!isError) {
+                messageInput.focus();
+            }
+        }
+
+        function showImagePreview(imageData) {
+            const previewDiv = document.createElement('div');
+            previewDiv.className = 'image-preview';
+            previewDiv.innerHTML = `<img src="${imageData}" alt="Preview">`;
+            messageInput.parentElement.insertBefore(previewDiv, messageInput);
+        }
+
+        function clearImagePreviews() {
+            const previews = document.querySelectorAll('.image-preview');
+            previews.forEach(p => p.remove());
+        }
+
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            const images = [...pendingImages];
+
+            if (!text && images.length === 0) return;
+
+            // Disable input
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+
+            // Clear input
+            messageInput.value = '';
+            pendingImages = [];
+            clearImagePreviews();
+
+            // Add user message
+            addMessage('user', text, images);
+
+            // Build message content for API
+            let messageContent = [];
+
+            if (images.length > 0) {
+                images.forEach(img => {
+                    messageContent.push({
+                        type: "image",
+                        source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: img.split(',')[1]
+                        }
+                    });
+                });
+            }
+
+            if (text) {
+                messageContent.push({
+                    type: "text",
+                    text: text
+                });
+            }
+
+            // Add to conversation history
+            conversationHistory.push({
+                role: "user",
+                content: messageContent.length === 1 && messageContent[0].type === "text"
+                    ? text
+                    : messageContent
+            });
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            // Get AI response
+            try {
+                const response = await getAIResponse();
+                hideTypingIndicator();
+
+                // Check if response triggers loan modal
+                if (response.includes('SHOW_LOAN_MODAL')) {
+                    addMessage('assistant', response.replace('SHOW_LOAN_MODAL', '').trim());
+                    conversationHistory.push({
+                        role: "assistant",
+                        content: response.replace('SHOW_LOAN_MODAL', '').trim()
+                    });
+
+                    // Show loan modal after a brief delay
+                    setTimeout(() => {
+                        openLoanModal();
+                    }, 500);
+                } else {
+                    addMessage('assistant', response);
+                    conversationHistory.push({
+                        role: "assistant",
+                        content: response
+                    });
+                }
+            } catch (error) {
+                hideTypingIndicator();
+                addMessage('assistant', 'Sorry, there was an error. Please try again.');
+                console.error('Error:', error);
+            }
+
+            // Re-enable input
+            sendBtn.disabled = false;
+            messageInput.disabled = false;
+            messageInput.focus();
+        }
+
+        function addMessage(sender, text, images = []) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = sender === 'assistant' ? 'BP' : 'U';
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+
+            if (text) {
+                // Convert markdown-style bold to HTML
+                const formattedText = text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n/g, '<br>');
+                content.innerHTML = formattedText;
+            }
+
+            if (images && images.length > 0) {
+                images.forEach(imgData => {
+                    const img = document.createElement('img');
+                    img.src = imgData;
+                    content.appendChild(img);
+                });
+            }
+
+            if (sender === 'assistant') {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(content);
+            } else {
+                messageDiv.appendChild(content);
+                messageDiv.appendChild(avatar);
+            }
+
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'message assistant';
+            indicator.id = 'typingIndicator';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = 'BP';
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            content.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+
+            indicator.appendChild(avatar);
+            indicator.appendChild(content);
+            messagesContainer.appendChild(indicator);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // Configuration - use relative path so it works on any domain
+        const API_URL = '/api/chat';
+
+        async function getAIResponse() {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 1024,
+                    system: getSystemPrompt(),
+                    messages: conversationHistory,
+                    sessionId: SESSION_ID,
+                    userId: 'demo-user'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.content[0].text;
+        }
+
+        // Loan Modal Functions
+        function openLoanModal() {
+            document.getElementById('loanModal').classList.add('active');
+            showModalScreen('screen-amount');
+        }
+
+        function closeLoanModal() {
+            document.getElementById('loanModal').classList.remove('active');
+        }
+
+        function closeLoanModalWithMessage() {
+            closeLoanModal();
+            // Add a message from assistant after loan acceptance
+            setTimeout(() => {
+                addMessage('assistant', 'Fantastic! 🎉 Your loan is approved and funds will arrive within 24 hours. Now, let\'s talk about how to make the most of this capital. What specific area would you like help with? I can advise on: increasing sales, managing cash flow, reducing costs, or attracting more customers.');
+                conversationHistory.push({
+                    role: "assistant",
+                    content: 'Fantastic! 🎉 Your loan is approved and funds will arrive within 24 hours. Now, let\'s talk about how to make the most of this capital. What specific area would you like help with? I can advise on: increasing sales, managing cash flow, reducing costs, or attracting more customers.'
+                });
+            }, 300);
+        }
+
+        function showModalScreen(screenId) {
+            const screens = document.querySelectorAll('.modal-screen');
+            screens.forEach(screen => screen.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function acceptLoan() {
+            const checkboxes = document.querySelectorAll('#screen-terms input[type="checkbox"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+            if (!allChecked) {
+                alert('Please accept all terms and conditions to continue');
+                return;
+            }
+
+            userProfile.hasActiveLoan = true;
+            userProfile.loanAmount = 5000;
+            showModalScreen('screen-success');
+        }
+
+        // Amount slider functionality
+        const slider = document.getElementById('amountSlider');
+        const displayAmount = document.getElementById('displayAmount');
+
+        slider.addEventListener('input', function() {
+            const amount = parseInt(this.value).toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
+            displayAmount.textContent = amount;
+        });
+
+        // Payment option selection
+        const paymentOptions = document.querySelectorAll('.payment-option');
+        paymentOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                paymentOptions.forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        // Auto-focus input on load
+        messageInput.focus();
+    </script>
+</body>
+</html>
