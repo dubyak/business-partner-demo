@@ -318,17 +318,38 @@ El estado actual se proporcionará en cada mensaje para que sepas dónde estás 
 
             const apiMessages = updatedMessages.map((msg, idx) => {
               if (msg.role === 'user') {
-                let content = msg.content;
+                let content;
                 
                 if (msg.image) {
+                  // Send image in multimodal format that backend expects
+                  const imageBase64 = msg.image.split(',')[1] || msg.image;
                   const imageInstruction = language === 'es'
-                    ? `[USUARIO COMPARTIÓ UNA CAPTURA DE UN PRÉSTAMO]\n\nSu mensaje: "${msg.content || '(sin texto, solo la imagen)'}"\n\n[SISTEMA: Finge que puedes ver la captura del préstamo. Inventa detalles realistas - usa un nombre de prestamista mexicano como Kueski, Stori, Nu México, Mercado Crédito, Creditea, Dineria, Konfío, Credilikeme, Moneyman, o Cashclick. Genera monto plausible ($1,000-$8,000 MXN), fecha de vencimiento (próximos 30 días), y saldo restante. Reconoce calurosamente y confirma los detalles. Préstamos recolectados hasta ahora: ${flowState.loansCollected.length}. Necesita ${flowState.loansRequired - flowState.loansCollected.length} más. ${langNote}]`
-                    : `[USER SHARED A SCREENSHOT OF A LOAN]\n\nTheir message: "${msg.content || '(no text, just the image)'}"\n\n[SYSTEM: Pretend you can see the loan screenshot. Make up realistic details - pick a Mexican lender name like Kueski, Stori, Nu México, Mercado Crédito, Creditea, Dineria, Konfío, Credilikeme, Moneyman, or Cashclick. Generate plausible loan amount ($1,000-$8,000 MXN), due date (within next 30 days), and remaining balance. Acknowledge warmly and confirm the details with them. Loans collected so far: ${flowState.loansCollected.length}. Need ${flowState.loansRequired - flowState.loansCollected.length} more. ${langNote}]`;
-                  content = imageInstruction;
-                }
-                
-                if (idx === updatedMessages.length - 1) {
-                  content += `\n\n[CURRENT STATE: Stage=${flowState.stage}, Loans collected=${flowState.loansCollected.length}/${flowState.loansRequired}. ${langNote}]`;
+                    ? `[USUARIO COMPARTIÓ UNA CAPTURA DE UN PRÉSTAMO]\n\nSu mensaje: "${msg.content || '(sin texto, solo la imagen)'}"\n\n[SISTEMA: Analiza la captura del préstamo que compartió. Extrae detalles realistas - identifica el nombre del prestamista (Kueski, Stori, Nu México, Mercado Crédito, Creditea, Dineria, Konfío, Credilikeme, Moneyman, o Cashclick), monto, fecha de vencimiento, y saldo restante. Reconoce calurosamente y confirma los detalles. Préstamos recolectados hasta ahora: ${flowState.loansCollected.length}. Necesita ${flowState.loansRequired - flowState.loansCollected.length} más. ${langNote}]`
+                    : `[USER SHARED A SCREENSHOT OF A LOAN]\n\nTheir message: "${msg.content || '(no text, just the image)'}"\n\n[SYSTEM: Analyze the loan screenshot they shared. Extract realistic details - identify the lender name (Kueski, Stori, Nu México, Mercado Crédito, Creditea, Dineria, Konfío, Credilikeme, Moneyman, or Cashclick), amount, due date, and remaining balance. Acknowledge warmly and confirm the details with them. Loans collected so far: ${flowState.loansCollected.length}. Need ${flowState.loansRequired - flowState.loansCollected.length} more. ${langNote}]`;
+                  
+                  // Format as multimodal content: text + image
+                  content = [
+                    { type: "text", text: imageInstruction },
+                    {
+                      type: "image",
+                      source: {
+                        type: "base64",
+                        media_type: "image/jpeg",
+                        data: imageBase64
+                      }
+                    }
+                  ];
+                  
+                  if (idx === updatedMessages.length - 1) {
+                    const stateNote = `\n\n[CURRENT STATE: Stage=${flowState.stage}, Loans collected=${flowState.loansCollected.length}/${flowState.loansRequired}. ${langNote}]`;
+                    content[0].text += stateNote;
+                  }
+                } else {
+                  // Regular text message
+                  content = msg.content;
+                  if (idx === updatedMessages.length - 1) {
+                    content += `\n\n[CURRENT STATE: Stage=${flowState.stage}, Loans collected=${flowState.loansCollected.length}/${flowState.loansRequired}. ${langNote}]`;
+                  }
                 }
                 
                 return { role: 'user', content };
