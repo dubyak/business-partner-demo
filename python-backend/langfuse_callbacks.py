@@ -64,8 +64,18 @@ class LangfuseCallbackHandler(BaseCallbackHandler):
                         "generation_info": gen.generation_info
                     })
             
+            # For most debugging/observability use-cases, the PRIMARY thing we
+            # want to see in Langfuse is the actual LLM text output.
+            # Expose the first generation's text at the top-level `text` field
+            # so it shows up clearly in the UI while still keeping the full
+            # generations array for deeper inspection.
+            primary_text = generations[0]["text"] if generations else None
+            
             langfuse_context.update_current_observation(
                 output={
+                    # Surface main completion directly
+                    "text": primary_text,
+                    # Keep full structured data for analysis
                     "generations": generations,
                     "token_usage": token_usage,
                 },

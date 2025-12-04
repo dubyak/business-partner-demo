@@ -82,6 +82,50 @@ class ChatResponse(BaseModel):
     usage: Dict[str, int]
 
 
+def _sanitize_messages_for_langfuse(messages: List[Message]) -> List[Dict[str, Any]]:
+    """
+    Return a copy of messages with large/PII-heavy fields (like base64 images) redacted
+    before sending to Langfuse.
+
+    - Keeps text content untouched.
+    - For multimodal messages, replaces image `source.data` with a small placeholder
+      while preserving basic metadata like media_type.
+    """
+    sanitized: List[Dict[str, Any]] = []
+
+    for msg in messages:
+        data = msg.model_dump()
+        content = data.get("content")
+
+        # Multimodal content: list of parts (text, image, etc.)
+        if isinstance(content, list):
+            new_parts = []
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "image":
+                    source = part.get("source") or {}
+                    media_type = source.get("media_type") if isinstance(source, dict) else None
+
+                    # Store only lightweight metadata for tracing
+                    new_parts.append(
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "redacted",
+                                "media_type": media_type,
+                                "note": "image data redacted for Langfuse trace (see frontend payload)",
+                            },
+                        }
+                    )
+                else:
+                    new_parts.append(part)
+
+            data["content"] = new_parts
+
+        sanitized.append(data)
+
+    return sanitized
+
+
 @app.get("/health")
 def health_check():
     """Health check endpoint."""
@@ -118,12 +162,17 @@ async def chat(request: ChatRequest):
                 model=request.model,
                 architecture="langgraph-multi-agent",
             )
-            
+
+            # IMPORTANT: sanitize messages so we don't send huge base64 blobs
+            # (or sensitive image data) into Langfuse. This keeps traces readable
+            # and avoids "input truncated due to size exceeding limit" in the UI.
+            sanitized_input = _sanitize_messages_for_langfuse(request.messages)
+
             trace = langfuse.trace(
                 name="business-partner-conversation",
                 session_id=session_id,
                 user_id=user_id,
-                input=[msg.model_dump() for msg in request.messages],
+                input=sanitized_input,
                 metadata=trace_metadata,
                 tags=["customer-journey", "langgraph", "multi-agent"],
             )
