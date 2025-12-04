@@ -44,10 +44,6 @@ app.add_middleware(
 # Include personas router
 app.include_router(personas_router, prefix="/api", tags=["personas"])
 
-# Initialize Langfuse client (centralized, production-ready)
-langfuse = get_langfuse_client()
-
-
 # Request/Response Models
 class Message(BaseModel):
     """Chat message."""
@@ -133,7 +129,7 @@ def health_check():
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-@observe(name="business-partner-chat-request")
+@observe(name="business-partner-chat")
 async def chat(request: ChatRequest):
     """
     Main chat endpoint - compatible with existing frontend.
@@ -149,54 +145,51 @@ async def chat(request: ChatRequest):
     # Log session ID for debugging
     print(f"[CHAT] Received request - session_id: {session_id}, user_id: {user_id}")
     
-    # Set up root trace for this customer journey
-    langfuse = get_langfuse_client()
-    trace = None
-    
-    if langfuse and should_sample():
-        try:
-            trace_metadata = get_trace_metadata(
-                user_id=user_id,
-                session_id=session_id,
-                flow_name="customer-journey",
-                model=request.model,
-                architecture="langgraph-multi-agent",
-            )
+    # Attach sanitized input + metadata to the root Langfuse observation created
+    # by the @observe decorator. This gives us a single clear root trace per
+    # request rather than mixing manual traces and decorator traces.
+    try:
+        trace_metadata = get_trace_metadata(
+            user_id=user_id,
+            session_id=session_id,
+            flow_name="customer-journey",
+            model=request.model,
+            architecture="langgraph-multi-agent",
+        )
 
-            # IMPORTANT: sanitize messages so we don't send huge base64 blobs
-            # (or sensitive image data) into Langfuse. This keeps traces readable
-            # and avoids "input truncated due to size exceeding limit" in the UI.
-            sanitized_input = _sanitize_messages_for_langfuse(request.messages)
+        sanitized_input = _sanitize_messages_for_langfuse(request.messages)
 
-            trace = langfuse.trace(
-                name="business-partner-conversation",
-                session_id=session_id,
-                user_id=user_id,
-                input=sanitized_input,
-                metadata=trace_metadata,
-                tags=["customer-journey", "langgraph", "multi-agent"],
-            )
-            
-            # Update the current observation with trace metadata
-            langfuse_context.update_current_observation(
-                metadata=trace_metadata,
-                tags=["customer-journey", "langgraph", "multi-agent"],
-            )
-        except Exception as e:
-            print(f"[LANGFUSE] Error creating trace: {e}")
-            trace = None
+        langfuse_context.update_current_observation(
+            input=sanitized_input,
+            metadata=trace_metadata,
+            tags=["customer-journey", "langgraph", "multi-agent"],
+        )
+    except Exception as e:
+        print(f"[LANGFUSE] Error attaching metadata to root observation: {e}")
     
     # Process the request
     try:
-        return await _process_chat_request(request, session_id, user_id, start_time, trace=trace)
+        response = await _process_chat_request(request, session_id, user_id, start_time)
+
+        # Attach final response + latency summary to the same root observation
+        try:
+            end_time = time.time()
+            latency_ms = int((end_time - start_time) * 1000)
+
+            langfuse_context.update_current_observation(
+                output=response.model_dump(),
+                metadata={
+                    "latency_ms": latency_ms,
+                    "usage": response.usage,
+                },
+            )
+        except Exception as e:
+            print(f"[LANGFUSE] Error updating root observation with output: {e}")
+
+        flush_langfuse()
+        return response
     except Exception as e:
-        # Log error to Langfuse
-        if trace:
-            try:
-                trace.update(level="ERROR", output={"error": str(e), "error_type": type(e).__name__})
-            except Exception as trace_error:
-                print(f"[LANGFUSE] Error updating trace: {trace_error}")
-        # Also update the observation
+        # Log error to Langfuse root observation
         try:
             langfuse_context.update_current_observation(
                 level="ERROR",
@@ -214,7 +207,6 @@ async def _process_chat_request(
     session_id: str,
     user_id: str,
     start_time: float,
-    trace: Optional[Any] = None
 ) -> ChatResponse:
     """Internal function to process chat request with tracing."""
     try:
@@ -365,9 +357,9 @@ async def _process_chat_request(
         response_text = assistant_message.content
 
         # Build response in Anthropic API format (for frontend compatibility)
-        end_time = time.time()
 
-        # Mock usage (in production, track actual token usage)
+        # Mock usage (in production, track actual token usage). The root `chat`
+        # handler will attach this to the root observation.
         usage = {"input_tokens": len(str(request.messages)) // 4, "output_tokens": len(response_text) // 4}
 
         response = ChatResponse(
@@ -384,37 +376,10 @@ async def _process_chat_request(
             },
         )
 
-        # Update Langfuse trace with output and state information
-        if trace:
-            result_metadata = {
-                "latency_ms": int((end_time - start_time) * 1000),
-                "agents_called": _extract_agents_called(result),
-                "result_state": {
-                    "business_type": result.get("business_type"),
-                    "location": result.get("location"),
-                    "years_operating": result.get("years_operating"),
-                    "num_employees": result.get("num_employees"),
-                    "monthly_revenue": result.get("monthly_revenue"),
-                    "monthly_expenses": result.get("monthly_expenses"),
-                    "loan_purpose": result.get("loan_purpose"),
-                },
-            }
-            trace.update(output=response.model_dump(), metadata=result_metadata)
-            print(f"[LANGFUSE] Trace updated with result_state: {result_metadata['result_state']}")
-
-        # Flush Langfuse
-        flush_langfuse()
-
         return response
 
     except Exception as e:
-        # Log error to Langfuse if trace exists
-        if trace:
-            try:
-                trace.update(level="ERROR", output={"error": str(e), "error_type": type(e).__name__})
-                flush_langfuse()
-            except:
-                pass
+        # Error logging is handled by the caller (`chat`) so we just re-raise.
         raise
 
 
